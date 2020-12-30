@@ -1,0 +1,18 @@
+all:
+   vars:
+      ansible_python_interpreter: /usr/bin/python3
+   children:
+      kubecontrol:
+         hosts:
+            bletchley001:
+               ansible_host: 192.168.0.84
+      kubecompute:
+         hosts:
+            bletchley002:
+               ansible_host: 192.168.0.83
+            bletchley004:
+               ansible_host: 192.168.0.81
+            bletchley003:
+               ansible_host: 192.168.0.82
+            bletchley005:
+               ansible_host: 192.168.0.80
