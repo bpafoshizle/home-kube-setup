@@ -1,16 +1,63 @@
+##################### Individual Configs ##################
+###########################################################
+- name: apply bletchley001 individual configs
+  hosts: bletchley001
+  remote_user: ubuntu
+  tasks:
+    - name: import bletchley001 tasks
+      import_tasks: bletchley001.yml
+
+- name: apply bletchley002 individual configs
+  hosts: bletchley002
+  remote_user: ubuntu
+  tasks:
+    - name: import bletchley002 tasks
+      import_tasks: bletchley002.yml
+
+- name: apply bletchley003 individual configs
+  hosts: bletchley003
+  remote_user: ubuntu
+  tasks:
+    - name: import bletchley003 tasks
+      import_tasks: bletchley003.yml
+
+- name: apply bletchley004 individual configs
+  hosts: bletchley004
+  remote_user: ubuntu
+  tasks:
+    - name: import bletchley004 tasks
+      import_tasks: bletchley004.yml
+
+- name: apply bletchley005 individual configs
+  hosts: bletchley005
+  remote_user: ubuntu
+  tasks:
+    - name: import bletchley005 tasks
+      import_tasks: bletchley005.yml
+
+
+##################### Common Config #######################
+###########################################################
 - name: apply common config to all hosts
   hosts: all
   remote_user: ubuntu
   
   tasks:
+    - name: generate ssh identity public and private keys
+      script: ./setup-scripts/00-ssh-ident-setup.sh
+      args:
+        creates: /home/ubuntu/.ssh/id_rsa
+
     - name: update vimrc and color scheme
       script: ./setup-scripts/00-vim-setup.sh
+    
     - name: install docker.io 
       become: true
       apt: 
         name: docker.io
         update_cache: yes
         state: latest
+    
     - name: copy docker daemon.json with owner and permissions
       become: true
       copy:
@@ -27,27 +74,42 @@
       check_mode: no
       ignore_errors: yes
       changed_when: no
+    
     - name: report if cgroup and swap options present
       debug: msg="cgroups and swap options present"
       when: cgroupswapoptions.rc == 0
+    
     - name: append the cgroups and swap options to the kernel command line
       become: true
       script: ./setup-scripts/00-cgroup-and-swap.sh
       when: cgroupswapoptions.rc != 0
     
-    - name: download ssh authorized user public keys
-      get_url:
-        url: https://github.com/bpafoshizle.keys
-        dest: /home/ubuntu/.ssh/authorized_keys
-        mode: u=rw,g=,o=
+    # Not a good way to do this securly, so will leave manual
+    #- name: download ssh authorized user public keys
+    #  get_url:
+    #    url: https://github.com/bpafoshizle.keys
+    #    dest: /home/ubuntu/.ssh/authorized_keys
+    #    mode: u=rw,g=,o=
 
+    # Idempotent way to build a /etc/hosts file with Ansible using your Ansible hosts inventory for a source.
+    # Will include all hosts the playbook is run on.
+    - name: build hosts file
+      become: true
+      lineinfile: 
+        path: /etc/hosts 
+        regexp: '.*{{ item }}$' 
+        line: "{{ hostvars[item].ansible_default_ipv4.address }} {{item}}" 
+        state: present
+      with_items: "{{ groups['all'] }}"
+      when: hostvars[item].ansible_default_ipv4.address is defined
 
+##################### Kube Control Plane Node Configs ##################
+########################################################################
 - name: setup control plane node
   hosts: kubecontrol
   remote_user: ubuntu
-    
   tasks:
-    - name: generate ssh identity public and private keys
-      script: ./setup-scripts/control-plane/00-ssh-control-setup.sh
-      args:
-        creates: /home/ubuntu/.ssh/id_rsa
+    - name: dummy
+      debug:
+        msg: "dummy placeholder task"
+      tags: test

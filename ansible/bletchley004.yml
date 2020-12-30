@@ -1,0 +1,4 @@
+- name: set hostname for bletchley004
+  become: true
+  command: hostnamectl set-hostname bletchley004
+
