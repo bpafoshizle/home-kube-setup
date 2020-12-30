@@ -1,0 +1,53 @@
+- name: apply common config to all hosts
+  hosts: all
+  remote_user: ubuntu
+  
+  tasks:
+    - name: update vimrc and color scheme
+      script: ./setup-scripts/00-vim-setup.sh
+    - name: install docker.io 
+      become: true
+      apt: 
+        name: docker.io
+        update_cache: yes
+        state: latest
+    - name: copy docker daemon.json with owner and permissions
+      become: true
+      copy:
+        src: ./config-files/daemon.json
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+
+    - name: check cgroups and swap options for kernel command line file
+      become: true
+      command: grep -F "cgroup_enable=cpuset cgroup_enable=memory cgroup_memory=1 swapaccount=1" /boot/firmware/cmdline.txt 
+      register: cgroupswapoptions
+      check_mode: no
+      ignore_errors: yes
+      changed_when: no
+    - name: report if cgroup and swap options present
+      debug: msg="cgroups and swap options present"
+      when: cgroupswapoptions.rc == 0
+    - name: append the cgroups and swap options to the kernel command line
+      become: true
+      script: ./setup-scripts/00-cgroup-and-swap.sh
+      when: cgroupswapoptions.rc != 0
+    
+    - name: download ssh authorized user public keys
+      get_url:
+        url: https://github.com/bpafoshizle.keys
+        dest: /home/ubuntu/.ssh/authorized_keys
+        mode: u=rw,g=,o=
+
+
+- name: setup control plane node
+  hosts: kubecontrol
+  remote_user: ubuntu
+    
+  tasks:
+    - name: generate ssh identity public and private keys
+      script: ./setup-scripts/control-plane/00-ssh-control-setup.sh
+      args:
+        creates: /home/ubuntu/.ssh/id_rsa
