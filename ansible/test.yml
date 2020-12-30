@@ -1,0 +1,10 @@
+- name: Retrieve host vars
+  hosts:
+    - all
+  tasks:
+    - debug:
+        var: groups['all']
+    - debug: 
+        msg: "{{ hostvars[item].ansible_default_ipv4.address }} {{ item }}"
+      with_items: "{{ groups['all'] }}"
+      when: hostvars[item].ansible_default_ipv4.address is defined
