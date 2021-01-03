@@ -61,7 +61,7 @@
     - name: copy docker daemon.json with owner and permissions
       become: true
       copy:
-        src: ./config-files/daemon.json
+        src: ./config-files/etc/docker/daemon.json
         dest: /etc/docker/daemon.json
         owner: root
         group: root
@@ -102,6 +102,24 @@
         state: present
       with_items: "{{ groups['all'] }}"
       when: hostvars[item].ansible_default_ipv4.address is defined
+    
+    # Kubernetes needs iptables to be configured to see bridged network traffic
+    - name: configure iptables to see bridged network traffic
+      become: true
+      copy:
+        src: ./config-files/etc/sysctl.d/k8s.conf
+        dest: /etc/sysctl.d/k8s.conf
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+      tags: test
+    
+    - name: reload system sysctl.d to pick up iptables changes
+      become: true
+      command: sysctl --system
+      tags: test
+
+      
 
 ##################### Kube Control Plane Node Configs ##################
 ########################################################################
