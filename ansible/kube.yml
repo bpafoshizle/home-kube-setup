@@ -84,13 +84,6 @@
       script: ./setup-scripts/00-cgroup-and-swap.sh
       when: cgroupswapoptions.rc != 0
     
-    # Not a good way to do this securly, so will leave manual
-    #- name: download ssh authorized user public keys
-    #  get_url:
-    #    url: https://github.com/bpafoshizle.keys
-    #    dest: /home/ubuntu/.ssh/authorized_keys
-    #    mode: u=rw,g=,o=
-
     # Idempotent way to build a /etc/hosts file with Ansible using your Ansible hosts inventory for a source.
     # Will include all hosts the playbook is run on.
     - name: build hosts file
@@ -112,13 +105,38 @@
         owner: root
         group: root
         mode: u=rw,g=r,o=r
-      tags: test
     
     - name: reload system sysctl.d to pick up iptables changes
       become: true
       command: sysctl --system
-      tags: test
+    
+    # Add kubernetes repo, install components, and disable apt-updates for those
+    - name: add the packages.cloud.google.com atp key
+      become: true
+      shell: 'curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -'
 
+    - name: add the kubernetes repo to ubuntu sources
+      become: true
+      copy:
+        src: ./config-files/etc/apt/sources.list.d/kubernetes.list
+        dest: /etc/apt/sources.list.d/kubernetes.list
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+
+    - name: install kubelet, kubeadm, and kubectl
+      become: true
+      apt:
+        pkg:
+        - kubelet
+        - kubeadm
+        - kubectl
+        update_cache: yes
+        state: latest
+    
+    - name: prevent kubelet, kubeadm, and kubectl from being updated
+      become: true
+      command: apt-mark hold kubelet kubeadm kubectl
       
 
 ##################### Kube Control Plane Node Configs ##################
