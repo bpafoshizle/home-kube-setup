@@ -145,7 +145,62 @@
   hosts: kubecontrol
   remote_user: ubuntu
   tasks:
-    - name: dummy
+    - name: generate a bootstrap token to authenticate nodes being joined to the cluster
+      shell: kubeadm token generate
+      register: kube_token 
+    
+    - name: print token
       debug:
-        msg: "dummy placeholder task"
-      tags: test
+        msg: "kube_token: {{ kube_token.stdout }}"
+    
+    - name: initialize control plane
+      become: true
+      shell: "kubeadm init --token='{{ kube_token.stdout }}' --kubernetes-version=v1.20.0 --pod-network-cidr=10.244.0.0/16"
+      args:
+        creates: /etc/kubernetes/admin.conf 
+      register: kube_init_output
+      tags: 
+        - init
+    
+    - name: write kube init output to a file on control plane node
+      copy:
+        content: "{{ kube_init_output.stdout }}"
+        dest: "/home/ubuntu/kube-init-output-{{ ansible_date_time.iso8601_basic }}"
+    
+    - name: Ensures /home/ubuntu/.kube dir exists
+      file: 
+        path: /home/ubuntu/.kube
+        state: directory
+
+    - name: copy admin kube config file to ubuntu user
+      become: true
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        remote_src: yes
+        owner: ubuntu
+        group: ubuntu
+        mode: u=rw,g=r,o=r
+
+    - name: download and apply the flannel yaml to the cluster
+      shell: 'curl -sSL https://raw.githubusercontent.com/coreos/flannel/v0.12.0/Documentation/kube-flannel.yml | kubectl apply -f -'
+      tags: 
+        - flannel
+
+    - name: Generate join command
+      command: kubeadm token create --print-join-command
+      register: join_command
+
+    - name: copy join command to file on control node
+      copy:
+        content: "{{ join_command.stdout_lines[0] }}"
+        dest: "/home/ubuntu/join-command-{{ ansible_date_time.iso8601_basic }}"
+        
+    - name: copy join command to local file
+      local_action: 
+        module: ansible.builtin.copy
+        content: "{{ join_command.stdout_lines[0] }}" 
+        dest: "./sensitive/join-command-{{ ansible_date_time.iso8601_basic }}"
+
+################### Kube compute nodes setup ##########################
+#######################################################################
