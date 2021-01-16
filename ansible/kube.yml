@@ -182,6 +182,15 @@
         group: ubuntu
         mode: u=rw,g=r,o=r
 
+    - name: download kubeconfig to ansible control host
+      become: true
+      fetch:
+        src: /etc/kubernetes/admin.conf
+        dest: /Users/bpafoshizle/.kube/bletchley-config
+        flat: yes
+      tags: 
+        - copy-kube-config
+
     - name: download and apply the flannel yaml to the cluster
       shell: 'curl -sSL https://raw.githubusercontent.com/coreos/flannel/v0.12.0/Documentation/kube-flannel.yml | kubectl apply -f -'
       tags: 
@@ -190,17 +199,39 @@
     - name: Generate join command
       command: kubeadm token create --print-join-command
       register: join_command
+      tags: 
+        - generate-join
 
-    - name: copy join command to file on control node
-      copy:
-        content: "{{ join_command.stdout_lines[0] }}"
-        dest: "/home/ubuntu/join-command-{{ ansible_date_time.iso8601_basic }}"
+    #- name: copy join command to file on control node
+    #  copy:
+    #    content: "{{ join_command.stdout_lines[0] }}"
+    #    dest: "/home/ubuntu/join-command-{{ ansible_date_time.iso8601_basic }}"
         
-    - name: copy join command to local file
-      local_action: 
-        module: ansible.builtin.copy
-        content: "{{ join_command.stdout_lines[0] }}" 
-        dest: "./sensitive/join-command-{{ ansible_date_time.iso8601_basic }}"
+    #- name: copy join command to local file
+    #  local_action: 
+    #    module: ansible.builtin.copy
+    #    content: "{{ join_command.stdout_lines[0] }}" 
+    #    dest: "./sensitive/join-command-{{ ansible_date_time.iso8601_basic }}"
+
+    
+    - name: add join_command to dummy host for access in compute node play
+      add_host:
+        name: "variable_holder"
+        shared_join_command:  "{{ join_command.stdout_lines[0] }}"
+      tags:
+        - generate-join
 
 ################### Kube compute nodes setup ##########################
 #######################################################################
+- name: join compute nodes
+  hosts: kubecompute
+  remote_user: ubuntu
+  vars: 
+    join_command: "{{ hostvars['variable_holder']['shared_join_command'] }}"
+  tasks:
+    - name: run join command to join node to cluster
+      become: true
+      shell: "{{ join_command }}"
+      tags:
+        - join
+ 
