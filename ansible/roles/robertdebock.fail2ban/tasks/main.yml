@@ -2,17 +2,17 @@
 # tasks file for fail2ban
 
 - name: import assert.yml
-  ansible.builtin.import_tasks: assert.yml
+  import_tasks: assert.yml
   run_once: yes
   delegate_to: localhost
 
 - name: install fail2ban
-  ansible.builtin.package:
+  package:
     name: "{{ fail2ban_packages }}"
     state: present
 
 - name: configure fail2ban.local
-  community.general.ini_file:
+  ini_file:
     path: /etc/fail2ban/fail2ban.local
     section: "{{ item.section }}"
     option: "{{ item.option }}"
@@ -25,7 +25,7 @@
     label: "{{ item.option }}"
 
 - name: configure jail.local
-  community.general.ini_file:
+  ini_file:
     path: /etc/fail2ban/jail.local
     section: "{{ item.section }}"
     option: "{{ item.option }}"
@@ -38,12 +38,12 @@
     label: "{{ item.option }}"
 
 - name: stat auth log file
-  ansible.builtin.stat:
+  stat:
     path: /var/log/auth.log
   register: fail2ban_auth
 
 - name: touch auth log file
-  ansible.builtin.file:
+  file:
     path: /var/log/auth.log
     state: touch
     mode: "0640"
@@ -52,7 +52,7 @@
     - not fail2ban_auth.stat.exists
 
 - name: start and enable fail2ban
-  ansible.builtin.service:
+  service:
     name: "{{ fail2ban_service }}"
     state: started
     enabled: yes
