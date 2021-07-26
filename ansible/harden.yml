@@ -1,0 +1,9 @@
+##################### Tasks to harden security #######################
+######################################################################
+- name: apply security hardening to all hosts
+  hosts: all
+  remote_user: ubuntu
+  become: yes
+
+  roles:
+    - robertdebock.fail2ban

@@ -17,4 +17,14 @@ Command to test some variables:
 Command to check validity of main config: 
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/kube.yml --check```
 
+Command to check validity of harden config: 
+```ansible-playbook -i ./ansible/inventory/hosts ./ansible/harden.yml --check```
 
+Command to update all hosts:
+```ansible-playbook -i ./ansible/inventory/hosts ./ansible/update.yml```
+
+Hardening playbook uses a community galaxy role for [fail2ban](https://github.com/robertdebock/ansible-role-fail2ban), provided by robertdebock. To use, it must first be installed via the following run from the repo root:
+
+```mkdir ./ansible/roles```
+
+```ansible-galaxy install --roles-path ./ansible/roles robertdebock.fail2ban```
