@@ -23,6 +23,9 @@ Command to check validity of harden config:
 Command to update all hosts:
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/update.yml```
 
+Command to check all CPU temperatures (in millidegrees Celsius):
+```ansible -i ~/github/local/home-kube-setup/ansible/inventory/hosts -u ubuntu --become all -m shell -a "cat /sys/class/thermal/thermal_zone*/temp"```
+
 Hardening playbook uses a community galaxy role for [fail2ban](https://github.com/robertdebock/ansible-role-fail2ban), provided by robertdebock. To use, it must first be installed via the following run from the repo root:
 
 ```mkdir ./ansible/roles```
