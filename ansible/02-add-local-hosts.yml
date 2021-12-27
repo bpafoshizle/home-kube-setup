@@ -1,0 +1,14 @@
+##################### Add LAN hosts after initial setup ###################
+###########################################################################
+- name: Add additional LAN IP and hostnames to all cluster hosts
+  hosts: all
+  remote_user: ubuntu
+  
+  tasks:
+    - name: add nfs host to hosts file
+      become: true
+      lineinfile:
+        path: /etc/hosts
+        regexp: '.*lynott$' # replace any line with lynott at the end
+        line: "192.168.0.43 lynott"
+        state: present
