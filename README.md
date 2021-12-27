@@ -68,6 +68,9 @@ Command to run playbook for installing packages:
 
 # Setting up Persistent Storage
 
+## Useful Links
+This person has almost my exact same setup. Kube running on pi4s with a synology NAS: [debontonline.com](https://www.debontonline.com/p/kubernetes.html)
+
 ## Preconfiguration Setup 
 This setup involves mostly kubernetes config and kubectl only. The ansible additions are for adding the hostname of the NFS server, [lynott (inventor of the magnetic disk drive)](https://www.invent.org/inductees/john-joseph-lynott), to every cluster host hosts file, and for installing the nfs-common package from apt to every host.
 
