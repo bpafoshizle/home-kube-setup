@@ -55,10 +55,18 @@ Command to check validity of add local hosts config:
 Command for adding additional local hosts to each cluster host's `/etc/hosts` file:
 ```./ansible/02-run-add-local-hosts-playbook.sh```
 
+# Install additional packages to all cluster hosts
+
+Command to check the validity of installing packages:
+```ansible-playbook -i ./ansible/inventory/hosts ./ansible/02-add-packages.yml --check```
+
+Command to run playbook for installing packages:
+```02-run-add-packages-playbook.sh```
+
 # Setting up Persistent Storage
 
 ## Preconfiguration Setup 
-This setup involves mostly kubernetes config and kubectl only. The only ansible addition is for adding the hostname of the NFS server, [lynott (inventor of the magnetic disk drive)](https://www.invent.org/inductees/john-joseph-lynott), to every cluster host hosts file. 
+This setup involves mostly kubernetes config and kubectl only. The ansible additions are for adding the hostname of the NFS server, [lynott (inventor of the magnetic disk drive)](https://www.invent.org/inductees/john-joseph-lynott), to every cluster host hosts file, and for installing the nfs-common package from apt to every host.
 
 [Persistent volumes, like nodes, are not scoped to any namespace, but persistent volume claims are](https://stackoverflow.com/questions/32316178/does-kubernetes-pv-recognize-namespace-when-created-queried-with-kubectl). My original plan was to create a persistent volume for the cluster, following [official kube examples](https://github.com/kubernetes/examples/tree/master/staging/volumes/nfs) but I have decided to use the [Kubernetes NFS Subdir External Provisioner](https://github.com/kubernetes-sigs/nfs-subdir-external-provisioner), after reading [this stack overflow thread](https://stackoverflow.com/questions/44204223/kubernetes-nfs-persistent-volumes-multiple-claims-on-same-volume-claim-stuck) and confirming my understanding of [the official documentation on persistent volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/), which states:
 
@@ -78,10 +86,31 @@ Prior to running these commands, I have done some preconfiguration steps.
     - Note that NFS does not really do security based on username and password, but is [based on hosts/ip of the clients](https://unix.stackexchange.com/questions/341854/failed-to-pass-credentials-to-nfs-mount). We have configured to allow all hosts. According to [this Synology documentation](https://kb.synology.com/en-global/DSM/help/DSM/AdminCenter/file_share_privilege_nfs?version=7), with the sys (AUTH_SYS) security option, "The client must have exactly the same numerical UID (user identifier) and GID (group identifier) on the NFS client and Synology NAS, or else the client will be assigned the permissions of others when accessing the shared folder. To avoid any permissions conflicts, you can select Map all users to admin from Squash or give "Everyone" permissions to the shared folder." So since all my kube services are running as root, and root is standard UID and GID 0 on linux, the mapping should work fine. This was confusing, because on my MacBook, where I am not root, I have to log in to the NAS with a preconfigured user to have permission. 
 - I have also configured an IP address reservation of the NAS to its MAC address in my router to ensure the IP of the NAS is fixed. 
 - I have a running kubernetes cluster as configured from the previous steps using Ansible.
-- I have run the ansible playbook above to add additional hosts (including the NFS host) to the cluster.
-- I have forked the [nfs-subdir-external-provisioner](https://github.com/bpafoshizle/nfs-subdir-external-provisioner) repo and pulled the forked repo in as a [subtree](https://www.atlassian.com/git/tutorials/git-subtree) for editing. 
+- I have run the ansible playbooks above to add additional hosts (including the NFS host) and install additional packages (including nfs-common) to the cluster.
+- I have forked the [nfs-subdir-external-provisioner](https://github.com/bpafoshizle/nfs-subdir-external-provisioner) repo and pulled the forked repo in as a [subtree](https://www.atlassian.com/git/tutorials/git-subtree) for editing.
 
-## 
+## NFS Kube Service Setup
+Change to the nfs-subdir-external-provisioner folder/repo: 
+```cd kube/nfs-subdir-external-provisioner```
+
+Modify the namespace (or leave it as default, which is what this did in my case) per the README:
+
+```bash
+NS=$(kubectl config get-contexts|grep -e "^\*" |awk '{print $5}')
+NAMESPACE=${NS:-default}
+sed -i '' "s/namespace:.*/namespace: $NAMESPACE/g" ./deploy/rbac.yaml ./deploy/deployment.yaml
+```
+
+Modify the `NFS_SERVER` and `NFS_PATH` env values and the nfs volume server and path properties in the [deployment.yaml](kube/nfs-subdir-external-provisioner/deploy/deployment.yaml) 
+
+Run the kubectl commands to deploy the rbac components, the provisioner deployment, and the storage class (encapsulated in [nfs-subdir-external-provisioner/deploy.sh](kube/nfs-subdir-external-provisioner/deploy.sh))
+
+```bash
+kubectl apply -f deploy/rbac.yaml
+kubectl apply -f deploy/deployment.yaml
+kubectl apply -f deploy/class.yaml
+```
+
 
 # One Off Commands
 Command to run test playbook:
