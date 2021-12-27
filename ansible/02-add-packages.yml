@@ -1,0 +1,14 @@
+##################### Common Packages #######################
+############################################################
+- name: Install common packages
+  hosts: all
+  remote_user: ubuntu
+  
+  tasks:
+    - name: install nfs-common
+      become: true
+      apt:
+        pkg:
+        - nfs-common
+        update_cache: yes
+        state: latest
