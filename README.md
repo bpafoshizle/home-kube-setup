@@ -3,6 +3,9 @@ Repo housing documentation and scripts related to setup and provisioning of my h
 
 # Initial Setup
 
+## Pi Setup
+As a prerequisite to running any ansible playbooks and setting up of kubernetes, first the scripts in the deploy/00-setup-scripts to generate SSH identities, and set up cgroups and swap for docker. Additionally, if replacing bletchley001, you would need to add its key to github keys. 
+
 ## Links and Tutorials Followed
 
 Currently provisioning kube with flannel per the guide, but [calico looks like a better overall option](https://rancher.com/blog/2019/2019-03-21-comparing-kubernetes-cni-providers-flannel-calico-canal-and-weave/) that I want to look into. 
@@ -21,10 +24,10 @@ Command to test some variables:
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/99-test.yml```
 
 Command to check validity of main config: 
-```ansible-playbook -i ./ansible/inventory/hosts ./ansible/00-kube.yml --check```
+```ansible-playbook -i ./ansible/inventory/hosts ./ansible/01-kube.yml --check```
 
 Command to run kube setup playbook:
-```./ansible/00-run-kube-playbook.sh```
+```./deploy/01-run-kube-playbook.sh```
 
 # Hardening
 
@@ -42,26 +45,26 @@ Hardening playbook uses a community galaxy role for [fail2ban](https://github.co
 ## Commands for hardening
 
 Command to check validity of harden config: 
-```ansible-playbook -i ./ansible/inventory/hosts ./ansible/01-harden.yml --check```
+```ansible-playbook -i ./ansible/inventory/hosts ./ansible/02-harden.yml --check```
 
 Command to run harden playbook:
-```./ansible/01-run-harden-playbook.sh```
+```./deploy/02-run-harden-playbook.sh```
 
 # Add additional hosts to cluster
 
 Command to check validity of add local hosts config:
-```ansible-playbook -i ./ansible/inventory/hosts ./ansible/02-add-local-hosts.yml --check```
+```ansible-playbook -i ./ansible/inventory/hosts ./ansible/03-add-local-hosts.yml --check```
 
 Command for adding additional local hosts to each cluster host's `/etc/hosts` file:
-```./ansible/02-run-add-local-hosts-playbook.sh```
+```./deploy/03-run-add-local-hosts-playbook.sh```
 
 # Install additional packages to all cluster hosts
 
 Command to check the validity of installing packages:
-```ansible-playbook -i ./ansible/inventory/hosts ./ansible/02-add-packages.yml --check```
+```ansible-playbook -i ./ansible/inventory/hosts ./ansible/03-add-packages.yml --check```
 
 Command to run playbook for installing packages:
-```02-run-add-packages-playbook.sh```
+```./deploy/03-run-add-packages-playbook.sh```
 
 # Setting up Persistent Storage
 
@@ -103,7 +106,7 @@ sed -i '' "s/namespace:.*/namespace: $NAMESPACE/g" ./deploy/rbac.yaml ./deploy/d
 
 Modify the `NFS_SERVER` and `NFS_PATH` env values and the nfs volume server and path properties in the [deployment.yaml](kube/nfs-subdir-external-provisioner/deploy/deployment.yaml) 
 
-Run the kubectl commands to deploy the rbac components, the provisioner deployment, and the storage class (encapsulated in [nfs-subdir-external-provisioner/deploy.sh](kube/nfs-subdir-external-provisioner/deploy.sh))
+Run the kubectl commands to deploy the rbac components, the provisioner deployment, and the storage class (encapsulated in [kube/nfs-subdir-external-provisioner/deploy.sh](kube/nfs-subdir-external-provisioner/deploy.sh))
 
 ```bash
 kubectl apply -f deploy/rbac.yaml
