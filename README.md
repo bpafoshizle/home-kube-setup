@@ -3,8 +3,8 @@ Repo housing documentation and scripts related to setup and provisioning of my h
 
 # Initial Setup
 
-## Pi Setup
-As a prerequisite to running any ansible playbooks and setting up of kubernetes, first the scripts in the deploy/00-setup-scripts to generate SSH identities, and set up cgroups and swap for docker. Additionally, if replacing bletchley001, you would need to add its key to github keys. 
+## Pi SSH Setup
+As a prerequisite to running ansible automation against hosts in the cluster, we first need to add ssh authorized users to each host. I've put relevant public keys that will be used as control nodes (e.g. my MacBook Pro and the bletchley001 pi) in my github account, and they can be accessed at: https://github.com/bpafoshizle.keys. Adding these keys to `~/.ssh/authorized_keys` on the managed node will allow ansible commands to be executed on the control node without having to worry about a username and password. The [00-get-ssh-authorized-users.sh](deploy/00-get-ssh-authorized-users.sh) script can be run on each managed node to add the ssh keys for control nodes as defined in my github keys. 
 
 ## Links and Tutorials Followed
 
