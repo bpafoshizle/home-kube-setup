@@ -132,6 +132,7 @@ Command to update all hosts:
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/99-update.yml```
 
 Command to check all CPU temperatures (in millidegrees Celsius):
-```ansible -i ~/github/local/home-kube-setup/ansible/inventory/hosts -u ubuntu --become all -m shell -a "cat /sys/class/thermal/thermal_zone*/temp"```
+```ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "cat /sys/class/thermal/thermal_zone*/temp"```
 
-
+Command to check disck usage on all hosts:
+```ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "df -h"```
