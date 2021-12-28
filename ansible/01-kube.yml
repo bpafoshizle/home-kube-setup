@@ -221,6 +221,19 @@
       tags:
         - generate-join
 
+    # Idempotent method to add command option for enabling aggregate routing
+    # to kube-apiserver. Necessary for API extensions like metrics-server
+    - name: enable kube-apiserver aggregate routing
+      become: true
+      lineinfile: 
+        path: /etc/kubernetes/manifests/kube-apiserver.yaml
+        regexp: '.*enable-aggregator-routing$' 
+        insertafter: '.*- kube-apiserver$'
+        line: "    - --enable-aggregator-routing=true" 
+        state: present
+      tags:
+        - kube-apiserver-enable-aggregator  
+
 ################### Kube compute nodes setup ##########################
 #######################################################################
 - name: join compute nodes

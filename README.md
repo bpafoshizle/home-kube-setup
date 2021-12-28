@@ -21,12 +21,15 @@ Currently provisioning kube with flannel per the guide, but [calico looks like a
 ## Commands for setup
 
 Command to test some variables:
+
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/99-test.yml```
 
 Command to check validity of main config: 
+
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/01-kube.yml --check```
 
 Command to run kube setup playbook:
+
 ```./deploy/01-run-kube-playbook.sh```
 
 # Hardening
@@ -45,25 +48,31 @@ Hardening playbook uses a community galaxy role for [fail2ban](https://github.co
 ## Commands for hardening
 
 Command to check validity of harden config: 
+
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/02-harden.yml --check```
 
 Command to run harden playbook:
+
 ```./deploy/02-run-harden-playbook.sh```
 
 # Add additional hosts to cluster
 
 Command to check validity of add local hosts config:
+
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/03-add-local-hosts.yml --check```
 
 Command for adding additional local hosts to each cluster host's `/etc/hosts` file:
+
 ```./deploy/03-run-add-local-hosts-playbook.sh```
 
 # Install additional packages to all cluster hosts
 
 Command to check the validity of installing packages:
+
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/03-add-packages.yml --check```
 
 Command to run playbook for installing packages:
+
 ```./deploy/03-run-add-packages-playbook.sh```
 
 # Setting up Persistent Storage
@@ -97,6 +106,7 @@ Prior to running these commands, I have done some preconfiguration steps.
 
 ## NFS Kube Service Setup
 Change to the nfs-subdir-external-provisioner folder/repo: 
+
 ```cd kube/nfs-subdir-external-provisioner```
 
 Modify the namespace (or leave it as default, which is what this did in my case) per the README:
@@ -117,22 +127,70 @@ kubectl apply -f deploy/deployment.yaml
 kubectl apply -f deploy/class.yaml
 ```
 
+# Setting up Cluster Monitoring
+I'm initially going to go with [Kubernetes Dashboard](https://github.com/kubernetes/dashboard). 
+
+```bash
+mkdir kube/kubernetes-dashboard && cd kube/kubernetes-dashboard && wget https://raw.githubusercontent.com/kubernetes/dashboard/v2.4.0/aio/deploy/recommended.yaml
+kubectl apply -f recommended.yaml
+```
+
+Without admin, you can't do much with the dashboard. To grant the kubernetes-dashboard service account, run: 
+
+```kubectl delete clusterrolebinding/kubernetes-dashboard && kubectl apply -f dashboard-admin.yaml```
+
+To find the name of your kubernetes-dashboard service account token secret, run:
+
+```kubectl -n kubernetes-dashboard get secrets```
+
+To get the bearer token of the kubernetes-dashboard service account to be used to log in to the dashboard UI, run:
+
+```kubectl -n kubernetes-dashboard get secret kubernetes-dashboard-token-kfl8c -o jsonpath='{.data.token}' | base64 --decode```
+
+To start the proxy, run:
+
+```kubectl proxy```
+
+Then navigate to: 
+http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/
+
+## Metrics
+By default, while you can see tons of info with Kubernetes Dashboard, you cannot see the CPU and memory usage of individual pods and resources running in the cluster. To enable that, you need to install [metrics-server](https://github.com/kubernetes-sigs/metrics-server), which can be done like so:
+
+```mkdir kube/metrics-server && cd kube/metrics-server && wget https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml```
+
+```kubectl apply -f components.yaml```
+
+Metrics Server needs [aggregator routing to be enabled](https://github.com/kubernetes-sigs/metrics-server/issues/448). While this could be accomplished via the Kubernetes Dashboard GUI, it's better to do via Ansible playbook, so I've added a step which can be run as a tagged task in a playbook.
+
+![Kubernetes Dashboard](documentation/images/kubernetes-dashboard-edit-resource.png)
+
+Command to check and add the flag permanently to `/etc/kubernetes/manifests/kube-apiserver.yaml `: 
+
+```ansible-playbook -i ./ansible/inventory/hosts ./ansible/01-kube.yml --tags kube-apiserver-enable-aggregator --check```
+
 
 # One Off Commands
 Command to run test playbook:
+
 ```./ansible/99-run-test-playbook.sh```
 
 Command to ping all hosts:
+
 ```./ansible/99-ping-test.sh```
 
-Coommand to reboot all hosts:
+Command to reboot all hosts:
+
 ```./ansible/99-reboot-all.sh```
 
 Command to update all hosts:
+
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/99-update.yml```
 
 Command to check all CPU temperatures (in millidegrees Celsius):
+
 ```ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "cat /sys/class/thermal/thermal_zone*/temp"```
 
 Command to check disck usage on all hosts:
-```ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "df -h"```
+
+```ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "df -h | grep /dev/mmcblk0p2"```
