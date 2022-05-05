@@ -194,3 +194,16 @@ Command to check all CPU temperatures (in millidegrees Celsius):
 Command to check disck usage on all hosts:
 
 ```ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "df -h | grep /dev/mmcblk0p2"```
+
+Command to check apiserver certificate expiration
+
+```ansible -i ./ansible/inventory/hosts -u ubuntu --become kubecontrol -m shell -a "openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -text |grep ' Not '"```
+
+Command to check all cert expirations
+
+```ansible -i ./ansible/inventory/hosts -u ubuntu --become kubecontrol -m shell -a "find /etc/kubernetes/pki/ -type f -name '*.crt' -print|egrep -v 'ca.crt$'|xargs -L 1 -t  -i bash -c 'openssl x509  -noout -text -in {}|grep After'"```
+
+Kubeadm way to check cert expiration
+
+```ansible -i ./ansible/inventory/hosts -u ubuntu --become kubecontrol -m shell -a "kubeadm certs check-expiration"```
+

@@ -1,0 +1,36 @@
+---
+- hosts: kubecontrol
+  remote_user: ubuntu
+  become: true
+  become_user: root
+  tasks:
+    - name: Check expiration of certs
+      command: kubeadm certs check-expiration
+
+    - name: Renew certs
+      command: kubeadm certs renew all
+
+    - name: Restart kubelet
+      ansible.builtin.systemd:
+        state: restarted
+        name: kubelet
+
+    - name: replace admin kube config file to ubuntu user
+      become: true
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        remote_src: yes
+        owner: ubuntu
+        group: ubuntu
+        mode: u=rw,g=r,o=r
+        backup: yes
+
+    - name: download kubeconfig to ansible control host
+      become: true
+      fetch:
+        src: /etc/kubernetes/admin.conf
+        dest: /Users/bpafoshizle/.kube/bletchley-config-{{ansible_date_time.iso8601}}
+        flat: yes
+      tags: 
+        - copy-kube-config
