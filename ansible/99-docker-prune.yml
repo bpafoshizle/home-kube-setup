@@ -1,0 +1,16 @@
+---
+- hosts:
+    - all
+  remote_user: ubuntu
+  become: true
+  become_user: root
+  tasks:
+    - name: Docker System Prune everything (including non-dangling images)
+      community.general.docker_prune:
+        containers: true
+        images: true
+        images_filters:
+          dangling: false
+        networks: true
+        volumes: true
+        builder_cache: true

@@ -187,6 +187,10 @@ Command to update all hosts:
 
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/99-update.yml```
 
+Command to prune docker system on all hosts:
+
+```ansible-playbook -i ./ansible/inventory/hosts ./ansible/99-docker-prune.yml```
+
 Command to check all CPU temperatures (in millidegrees Celsius):
 
 ```ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "cat /sys/class/thermal/thermal_zone*/temp"```

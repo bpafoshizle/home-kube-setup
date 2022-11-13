@@ -12,3 +12,12 @@
         - nfs-common
         update_cache: yes
         state: latest
+    - name: install python-docker
+      become: true
+      apt:
+        pkg:
+        - python3-docker
+        update_cache: yes
+        state: latest
+      tags:
+        - python-docker
