@@ -211,3 +211,11 @@ Kubeadm way to check cert expiration
 
 ```ansible -i ./ansible/inventory/hosts -u ubuntu --become kubecontrol -m shell -a "kubeadm certs check-expiration"```
 
+Command to renew all kube certificates:
+```ansible-playbook -i ./ansible/inventory/hosts ./ansible/99-renew-kube-certs.yml```
+
+Command to update packages.cloud.google.com public key:
+- I needed this 2022-12-27 when attempting to update OS packages and getting the error: 
+  - `Err:1 https://packages.cloud.google.com/apt kubernetes-xenial InRelease The following signatures couldn't be verified because the public key is not available: NO_PUBKEY B53DC80D13EDEF05 NO_PUBKEY FEEA9169307EA071`
+- ```ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -"```
+
