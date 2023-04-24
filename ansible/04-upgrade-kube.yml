@@ -1,0 +1,21 @@
+##################### Kube Control Plane Node Upgrades ##################
+########################################################################
+- name: upgrate kubeadm on control plane nodes
+  hosts: kubecontrol
+  remote_user: ubuntu
+  tasks:
+    - name: unlock kubeadm to allow updating
+      become: true
+      command: apt-mark unhold kubeadm
+
+    - name: update kubeadm
+      become: true
+      apt:
+        pkg:
+        - kubeadm
+        update_cache: yes
+        state: latest
+
+    - name: prevent kubeadm from being updated
+      become: true
+      command: apt-mark hold kubeadm
