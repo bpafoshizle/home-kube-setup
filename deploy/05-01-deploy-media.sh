@@ -8,4 +8,8 @@ kubectl create secret generic openvpn \
     --from-literal=password="${VPN_PASSWORD}" \
     --namespace media
 
+source ../kube/media/00-install-transmission-openvpn.sh
+source ../kube/media/01-install-jackett.sh
+source ../kube/media/02-install-sonarr.sh
+source ../kube/media/03-install-radarr.sh
 
