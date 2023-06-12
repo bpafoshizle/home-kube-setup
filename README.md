@@ -324,20 +324,6 @@ You can check the nginx pod with `kubectl get pods -n kube-system -l app.kuberne
 
 Once I had nginx running, I could not access any services, and I also was getting 404s instead of 503s. It turns out it was because I did not define the [ingressClassName](https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class), which if I'd followed the output suggested Ingress above, it was actually in there, however the [example I've been following](https://greg.jeanmart.me/2020/04/13/self-host-your-media-center-on-kubernetes-wi/) is older and doesn't have it. 
 
-## Media Components Setup
-
-For starters, I'm skipping creating the Persistent Volume, since mine will be dynimically provisioned, and I'm modifying the storage class for the PVC like so: `storageClassName: managed-nfs-storage`.
-
-The entire library of media components could be installed by running the 05-01-deploy-media.sh script in the deploy directory, or they can be installed individually from helm via the scripts below.
-
-To install transmission-openvpn, run the following from the deploy directory:
-
-`source ../kube/media/00-install-transmission-openvpn.sh`
-
-To install jackett, run the following: 
-
-`source ../kube/media/01-install-jackett.sh`
-
 # One Off Commands
 Command to run test playbook:
 
