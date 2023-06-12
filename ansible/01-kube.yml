@@ -155,7 +155,7 @@
     
     - name: initialize control plane
       become: true
-      shell: "kubeadm init --token='{{ kube_token.stdout }}' --kubernetes-version=v1.20.0 --pod-network-cidr=10.244.0.0/16"
+      shell: "kubeadm init --token='{{ kube_token.stdout }}' --kubernetes-version='{{ kubeversion }}' --pod-network-cidr=10.244.0.0/16"
       args:
         creates: /etc/kubernetes/admin.conf 
       register: kube_init_output
@@ -192,7 +192,7 @@
         - copy-kube-config
 
     - name: download and apply the flannel yaml to the cluster
-      shell: 'curl -sSL https://raw.githubusercontent.com/coreos/flannel/v0.12.0/Documentation/kube-flannel.yml | kubectl apply -f -'
+      shell: 'kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml'
       tags: 
         - flannel
 

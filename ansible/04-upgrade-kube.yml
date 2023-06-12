@@ -1,6 +1,6 @@
 ##################### Kube Control Plane Node Upgrades ##################
 ########################################################################
-- name: upgrate kubeadm on control plane nodes
+- name: upgrate kube on control plane nodes
   hosts: kubecontrol
   remote_user: ubuntu
   tasks:
@@ -12,10 +12,202 @@
       become: true
       apt:
         pkg:
-        - kubeadm
+        - kubeadm={{ kubeversion | regex_replace('^v', '') }}-00
         update_cache: yes
-        state: latest
 
     - name: prevent kubeadm from being updated
       become: true
       command: apt-mark hold kubeadm
+
+    - name: check kubeadm version
+      become: true
+      command: kubeadm version
+      register: kubeadm_version_output
+      tags:
+        - kubeadm-version
+
+    - name: print kubeadm version
+      debug:
+        msg: "kubeadm_version_output: {{ kubeadm_version_output.stdout }}"
+      tags:
+        - kubeadm-version
+
+    - name: kubeadm upgrade plan
+      become: true
+      command: kubeadm upgrade plan
+      register: kubeadm_upgrade_plan_output
+      tags:
+        - kubeadm-upgrade-plan-kube-control
+
+    - name: print kubeadm upgrade plan
+      debug:
+        msg: "kubeadm_upgrade_plan_output: {{ kubeadm_upgrade_plan_output.stdout }}"
+      tags:
+        - kubeadm-upgrade-plan-kube-control
+
+    - name: upgrade kubeadm
+      become: true
+      shell: "kubeadm upgrade apply --yes {{ kubeversion }} --certificate-renewal=false"
+      register: kubeadm_upgrade_output
+      tags:
+        - kubeadm-upgrade-kube-control
+
+
+    - name: print kubeadm upgrade output
+      debug:
+        msg: "kubeadm_upgrade_output: {{ kubeadm_upgrade_output.stdout }}"
+      tags:
+        - kubeadm-upgrade-kube-control
+
+    - name: drain the node
+      local_action: command kubectl drain {{ inventory_hostname }} --ignore-daemonsets --delete-emptydir-data
+      register: kubectl_drain_output
+      tags:
+        - drain-kubecontrol
+
+    - name: print kubectl drain output
+      debug:
+        msg: "kubectl_drain_output: {{ kubectl_drain_output.stdout }}"
+      tags:
+        - drain-kubecontrol
+
+    - name: unlock kubelet and kubectl to allow updating
+      become: true
+      command: apt-mark unhold kubelet kubectl
+
+    - name: upgrade kubelet and kubectl
+      become: true
+      shell: "apt-get update && apt-get install -y kubelet={{ kubeversion | regex_replace('^v', '') }}-00 kubectl={{ kubeversion | regex_replace('^v', '') }}-00"
+      register: apt_get_kubelet_kubectl_output
+
+    - name: print apt-get kubelet and kubectl output
+      debug:
+        msg: "apt_get_kubelet_kubectl_output: {{ apt_get_kubelet_kubectl_output.stdout }}"
+      
+    - name: prevent kubelet and kubectl from being updated
+      become: true
+      command: apt-mark hold kubelet kubectl
+
+    - name: daemon-reload
+      become: true
+      shell: systemctl daemon-reload
+      tags:
+        - restart-kubecontrol
+
+    - name: restart kubelet
+      become: true
+      service:
+        name: kubelet
+        state: restarted
+      tags: 
+        - restart-kubecontrol
+
+    - name: uncordon the node
+      local_action: command kubectl uncordon {{ inventory_hostname }}
+      register: kubectl_uncordon_output
+      tags:
+        - uncordon-kubecontrol
+
+    - name: print kubectl uncordon output
+      debug:
+        msg: "kubectl_uncordon_output: {{ kubectl_uncordon_output.stdout }}"
+      tags:
+        - uncordon-kubecontrol
+  tags:
+    - kubecontrol
+
+
+- name: upgrade kube on kubecompute nodes
+  hosts: kubecompute
+  remote_user: ubuntu
+  tasks:
+    - name: unlock kubeadm to allow updating
+      become: true
+      command: apt-mark unhold kubeadm
+
+    - name: update kubeadm
+      become: true
+      apt:
+        pkg:
+        - kubeadm={{ kubeversion | regex_replace('^v', '') }}-00
+        update_cache: yes
+
+    - name: prevent kubeadm from being updated
+      become: true
+      command: apt-mark hold kubeadm
+
+    - name: check kubeadm version
+      become: true
+      command: kubeadm version
+      register: kubeadm_version_output
+      tags:
+        - kubeadm-version
+
+    - name: print kubeadm version
+      debug:
+        msg: "kubeadm_version_output: {{ kubeadm_version_output.stdout }}"
+      tags:
+        - kubeadm-version
+
+    - name: upgrade kubeadm
+      become: true
+      shell: "kubeadm upgrade node "
+      register: kubeadm_upgrade_output
+
+    - name: print kubeadm upgrade output
+      debug:
+        msg: "kubeadm_upgrade_output: {{ kubeadm_upgrade_output.stdout }}"
+
+    - name: drain the node
+      local_action: command kubectl drain {{ inventory_hostname }} --ignore-daemonsets --delete-emptydir-data
+      register: kubectl_drain_output
+
+    - name: print kubectl drain output
+      debug:
+        msg: "kubectl_drain_output: {{ kubectl_drain_output.stdout }}"
+
+    - name: unlock kubelet and kubectl to allow updating
+      become: true
+      command: apt-mark unhold kubelet kubectl
+
+    - name: upgrade kubelet and kubectl
+      become: true
+      shell: "apt-get update && apt-get install -y kubelet={{ kubeversion | regex_replace('^v', '') }}-00 kubectl={{ kubeversion | regex_replace('^v', '') }}-00"
+      register: apt_get_kubelet_kubectl_output
+    
+    - name: print apt-get kubelet and kubectl output
+      debug:
+        msg: "apt_get_kubelet_kubectl_output: {{ apt_get_kubelet_kubectl_output.stdout }}"
+
+    - name: prevent kubelet and kubectl from being updated
+      become: true
+      command: apt-mark hold kubelet kubectl
+
+    - name: daemon-reload
+      become: true
+      shell: systemctl daemon-reload
+      tags: 
+        - daemon-reload
+
+    - name: restart kubelet
+      become: true
+      service:
+        name: kubelet
+        state: restarted
+      tags:
+        - restart-kubelet
+
+    - name: uncordon the node
+      local_action: command kubectl uncordon {{ inventory_hostname }}
+      register: kubectl_uncordon_output
+      tags:
+        - uncordon
+
+    - name: print kubectl uncordon output
+      debug:
+        msg: "kubectl_uncordon_output: {{ kubectl_uncordon_output.stdout }}"
+      tags:
+        - uncordon
+
+  tags:
+    - kubecompute

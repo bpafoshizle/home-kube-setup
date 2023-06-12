@@ -169,7 +169,48 @@ Command to check and add the flag permanently to `/etc/kubernetes/manifests/kube
 
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/01-kube.yml --tags kube-apiserver-enable-aggregator --check```
 
-# Media Setup with Plex, Transmission, Radarr, Sonarr, etc
+# Upgrade Kubernetes Version
+Upgrading kubernetes requires updating 3 components on each node, starting with control plane and then moving on to workers: kubeadm, kubelet, and kubectl. This is build into the `04-upgrade-kube.yml` ansible playbook. It is unsupported to skip minor versions (middle number in the v##.##.## versioning format), but you can skip all the patch versions (third number). Therefore before upgrading, we check all possible versions, and choose the highest patch number of the next minor version and pass that to the playbook. I've successfully used this playbook to upgrade from the following versions:
+
+|From|To|
+|----|--|
+|v1.20.0|v1.21.14|
+|v1.21.14|v1.22.17|
+|v1.22.17|v1.23.17|
+|v1.23.17|v1.24.13|
+|v1.24.13|v1.25.9|
+|v1.25.9|v1.26.4|
+
+Check all available kube versions:
+`ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "apt-cache madison kubeadm"`
+
+Pass the desired version to the playbook (again minor versions cannot be skipped):
+`ansible-playbook -i ansible/inventory/hosts ansible/04-upgrade-kube.yml -e "kubeversion=v1.23.17"`
+
+Or you can separate the control plan from worker node plays with tags.
+
+Upgrade control plane to a specific version: 
+`ansible-playbook -i ansible/inventory/hosts ansible/04-upgrade-kube.yml --tags "kubecontrol" -e "kubeversion=v1.21.14"`
+
+Upgrade worker nodes to a specific version:
+`ansible-playbook -i ansible/inventory/hosts ansible/04-upgrade-kube.yml --tags "kubecompute" -e "kubeversion=v1.21.14"`
+
+Upgrading between 1.23.17 to 1.24.13, the upgrade apparently didn't regenerate the kubelet, which caused an error in kubelet logs (check these with) about an invalid flag `Error: failed to parse kubelet flag: unknown flag: --network-plugin`. To fix, I had to do the following to manually force it to regenerate the `/var/lib/kubelet/kubeadm-flags.env` file. Command to force a file update: `kubeadm init phase kubelet-start`
+
+Before the file had: `KUBELET_KUBEADM_ARGS="--network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.2"`
+After it had: `KUBELET_KUBEADM_ARGS="--container-runtime=remote --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock --pod-infra-container-image=registry.k8s.io/pause:3.7"`
+
+Additionally, during this upgrade, I ran into a situation where one of my nodes, bletchley003 was hanging on the drain step. It was ultimately due to some pods that were stuck in "terminating" status. Running drain locally, outside of ansible I could see the pods attempting to be evicted, and viewing pods in each namespace shows some terminating for a long time. I was able to force kill each of those pods individually with this command: `kubectl delete pod kube-verify-69dd569645-r5h8s --grace-period=0 --force --namespace kube-verify`
+
+Attempting to upgrade from 1.24.13 to 1.25.9, I ran into the following error:
+
+```
+[ERROR ImagePull]: failed to pull image registry.k8s.io/kube-apiserver:v1.25.9: output: time="2023-05-02T17:24:27Z" level=fatal msg="unable to determine image API version: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial unix /var/run/dockershim.sock: connect: connection refused
+```
+
+It seems that even though I didn't run into issues when upgrading from version 1.23 to 1.24, where the switch from Docker to containerd actually occurred, I did run into issues trying to pull this image after the upgrade. The environment vars for kubelet looked correct, but I was able to follow the portion of [this guide](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/change-runtime-containerd/) to update the annotation in the Node object for each host.
+
+# Media Setup with Plex, Transmission, Radarr, Sonarr, Lidarr, Readarr, etc
 I'm following [this tutorial](https://greg.jeanmart.me/2020/04/13/self-host-your-media-center-on-kubernetes-wi/) roughly, adapting it to use my dynamic NFS subdir external provisioning deployment. I'll also be needing to work with Helm for the first time to follow this guide, so that needs to be installed on my Mac, which is accomplished via `brew install helm`. Follow this by adding the stable helm repo: `helm repo add stable https://charts.helm.sh/stable`.
 
 ## Cluster Components Setup
@@ -281,14 +322,21 @@ You can check the nginx pod with `kubectl get pods -n kube-system -l app.kuberne
 
 >Interestingly, Nginx service is deployed in LoadBalancer mode, you can observe MetalLB allocates a virtual IP (column EXTERNAL-IP) to Nginx.
 
-
+Once I had nginx running, I could not access any services, and I also was getting 404s instead of 503s. It turns out it was because I did not define the [ingressClassName](https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class), which if I'd followed the output suggested Ingress above, it was actually in there, however the [example I've been following](https://greg.jeanmart.me/2020/04/13/self-host-your-media-center-on-kubernetes-wi/) is older and doesn't have it. 
 
 ## Media Components Setup
 
-For starters, I'm skipping creating the Persistent Volume, since mine will be dynimically provisioned, and I'm modifying the storage class like so: `storageClassName: managed-nfs-storage`.
+For starters, I'm skipping creating the Persistent Volume, since mine will be dynimically provisioned, and I'm modifying the storage class for the PVC like so: `storageClassName: managed-nfs-storage`.
 
+The entire library of media components could be installed by running the 05-01-deploy-media.sh script in the deploy directory, or they can be installed individually from helm via the scripts below.
 
+To install transmission-openvpn, run the following from the deploy directory:
 
+`source ../kube/media/00-install-transmission-openvpn.sh`
+
+To install jackett, run the following: 
+
+`source ../kube/media/01-install-jackett.sh`
 
 # One Off Commands
 Command to run test playbook:
