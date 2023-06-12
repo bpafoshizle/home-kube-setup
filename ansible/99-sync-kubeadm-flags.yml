@@ -1,0 +1,17 @@
+---
+- name: Copy kubelet flags to kubecompute nodes
+  hosts: kubecontrol
+  remote_user: ubuntu
+  become: true
+  tasks:
+    - name: Read kubelet flags from file
+      slurp:
+        src: /var/lib/kubelet/kubeadm-flags.env
+      register: kubelet_flags
+
+    - name: Copy kubelet flags to kubecompute nodes
+      copy:
+        content: "{{ kubelet_flags.content | b64decode }}"
+        dest: /var/lib/kubelet/kubeadm-flags.env
+      delegate_to: "{{ item }}"
+      with_items: "{{ groups['kubecompute'] }}"

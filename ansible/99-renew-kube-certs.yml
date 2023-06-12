@@ -9,11 +9,15 @@
 
     - name: Renew certs
       command: kubeadm certs renew all
+      tags
+        - renew-certs
 
     - name: Restart kubelet
       ansible.builtin.systemd:
         state: restarted
         name: kubelet
+      tags:
+        - restart-kubelet
 
     - name: replace admin kube config file to ubuntu user
       become: true
@@ -25,6 +29,8 @@
         group: ubuntu
         mode: u=rw,g=r,o=r
         backup: yes
+      tags:
+        - copy-kube-config-kubecontrol
 
     - name: download kubeconfig to ansible control host
       become: true
@@ -33,4 +39,4 @@
         dest: /Users/bpafoshizle/.kube/bletchley-config-{{ansible_date_time.iso8601}}
         flat: yes
       tags: 
-        - copy-kube-config
+        - copy-kube-config-local

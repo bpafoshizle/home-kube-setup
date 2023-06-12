@@ -1,0 +1,37 @@
+## media.radarr.values.yml
+replicaCount: 1
+
+image:
+  repository: ghcr.io/bpafoshizle/docker-radarr
+  tag: master # ARM image
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: ghcr-docker-radarr # https://stackoverflow.com/questions/62901288/how-to-use-imagepullsecrets-in-helm-3
+
+env:
+  - name: PUID
+    value: "1000"
+  - name: PGID
+    value: "1000"
+
+service:
+  type: ClusterIP
+  port: 80
+
+volumes:
+  - name: media-lynott
+    persistentVolumeClaim:
+      claimName: "media-lynott" # PersistentVolumeClaim created earlier
+
+volumeMounts:
+  - name: media-lynott
+    mountPath: "/config"
+    subPath: "configs/radarr" # Path /mnt/ssd/media/configs/radarr where radarr writes the configuration
+  - name: media-lynott
+    mountPath: "/downloads/transmission"
+    subPath: "downloads/transmission" # Path /mnt/ssd/media/downloads/transmission where radarr picks up downloaded movies
+  - name: media-lynott
+    mountPath: "/movies"
+    subPath: "library/movies" # Path /mnt/ssd/media/library/movies where radarr moves and renames the movies
+

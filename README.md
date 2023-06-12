@@ -169,6 +169,174 @@ Command to check and add the flag permanently to `/etc/kubernetes/manifests/kube
 
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/01-kube.yml --tags kube-apiserver-enable-aggregator --check```
 
+# Upgrade Kubernetes Version
+Upgrading kubernetes requires updating 3 components on each node, starting with control plane and then moving on to workers: kubeadm, kubelet, and kubectl. This is build into the `04-upgrade-kube.yml` ansible playbook. It is unsupported to skip minor versions (middle number in the v##.##.## versioning format), but you can skip all the patch versions (third number). Therefore before upgrading, we check all possible versions, and choose the highest patch number of the next minor version and pass that to the playbook. I've successfully used this playbook to upgrade from the following versions:
+
+|From|To|
+|----|--|
+|v1.20.0|v1.21.14|
+|v1.21.14|v1.22.17|
+|v1.22.17|v1.23.17|
+|v1.23.17|v1.24.13|
+|v1.24.13|v1.25.9|
+|v1.25.9|v1.26.4|
+
+Check all available kube versions:
+`ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "apt-cache madison kubeadm"`
+
+Pass the desired version to the playbook (again minor versions cannot be skipped):
+`ansible-playbook -i ansible/inventory/hosts ansible/04-upgrade-kube.yml -e "kubeversion=v1.23.17"`
+
+Or you can separate the control plan from worker node plays with tags.
+
+Upgrade control plane to a specific version: 
+`ansible-playbook -i ansible/inventory/hosts ansible/04-upgrade-kube.yml --tags "kubecontrol" -e "kubeversion=v1.21.14"`
+
+Upgrade worker nodes to a specific version:
+`ansible-playbook -i ansible/inventory/hosts ansible/04-upgrade-kube.yml --tags "kubecompute" -e "kubeversion=v1.21.14"`
+
+Upgrading between 1.23.17 to 1.24.13, the upgrade apparently didn't regenerate the kubelet, which caused an error in kubelet logs (check these with) about an invalid flag `Error: failed to parse kubelet flag: unknown flag: --network-plugin`. To fix, I had to do the following to manually force it to regenerate the `/var/lib/kubelet/kubeadm-flags.env` file. Command to force a file update: `kubeadm init phase kubelet-start`
+
+Before the file had: `KUBELET_KUBEADM_ARGS="--network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.2"`
+After it had: `KUBELET_KUBEADM_ARGS="--container-runtime=remote --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock --pod-infra-container-image=registry.k8s.io/pause:3.7"`
+
+Additionally, during this upgrade, I ran into a situation where one of my nodes, bletchley003 was hanging on the drain step. It was ultimately due to some pods that were stuck in "terminating" status. Running drain locally, outside of ansible I could see the pods attempting to be evicted, and viewing pods in each namespace shows some terminating for a long time. I was able to force kill each of those pods individually with this command: `kubectl delete pod kube-verify-69dd569645-r5h8s --grace-period=0 --force --namespace kube-verify`
+
+Attempting to upgrade from 1.24.13 to 1.25.9, I ran into the following error:
+
+```
+[ERROR ImagePull]: failed to pull image registry.k8s.io/kube-apiserver:v1.25.9: output: time="2023-05-02T17:24:27Z" level=fatal msg="unable to determine image API version: rpc error: code = Unavailable desc = connection error: desc = "transport: Error while dialing dial unix /var/run/dockershim.sock: connect: connection refused
+```
+
+It seems that even though I didn't run into issues when upgrading from version 1.23 to 1.24, where the switch from Docker to containerd actually occurred, I did run into issues trying to pull this image after the upgrade. The environment vars for kubelet looked correct, but I was able to follow the portion of [this guide](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/change-runtime-containerd/) to update the annotation in the Node object for each host.
+
+# Media Setup with Plex, Transmission, Radarr, Sonarr, Lidarr, Readarr, etc
+I'm following [this tutorial](https://greg.jeanmart.me/2020/04/13/self-host-your-media-center-on-kubernetes-wi/) roughly, adapting it to use my dynamic NFS subdir external provisioning deployment. I'll also be needing to work with Helm for the first time to follow this guide, so that needs to be installed on my Mac, which is accomplished via `brew install helm`. Follow this by adding the stable helm repo: `helm repo add stable https://charts.helm.sh/stable`.
+
+## Cluster Components Setup
+
+### MetalLB
+
+First I need to install MetalLB. According to the guide I'm following: 
+
+> When configuring a Kubernetes service of type LoadBalancer, MetalLB will dedicate a virtual IP from an address-pool to be used as load balancer for an application.
+
+Installing MetalLB from helm stable as the guide says no longer works. It seems helm now hosts on github instead of Dockerhub, likely due to Docker making everything paid and more locked down the last couple years. So I had to add the new helm the metallb repo: `helm repo add metallb https://metallb.github.io/metallb` and updating: `helm repo update`. I also had to change how to supply the config for MetalLB, since with the newest MetalLb version, it wants a values yaml file and no longer supports the `configInline`. ChatGPT helped me out quickly here and also helpfully explained:
+
+> The configInline field is a deprecated way to configure MetalLB using a YAML configuration block embedded in a Helm value file. The current recommended way to configure MetalLB with Helm is to use the values.yaml file to specify your configuration.
+
+To install, you need to be in the deploy directory `source ../kube/metallb-nginx-certmanager/00-install-metallb.sh` and run or I've combined the install for metallb, nginx, and cert manager all into `05-00-deploy-metallb-nginx-certmanager.sh`
+
+You should see: 
+
+```
+NAME: metallb
+LAST DEPLOYED: Sun Apr 23 12:49:44 2023
+NAMESPACE: kube-system
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+MetalLB is now running in the cluster.
+```
+
+And you can check the pods with some slight alterations from the guide script: 
+
+`kubectl get pods -n kube-system -l app.kubernetes.io/name=metallb -o wide`
+
+Should yield the following:
+
+```
+NAME                                  READY   STATUS    RESTARTS   AGE     IP             NODE           NOMINATED NODE   READINESS GATES
+metallb-controller-5b77564b5d-d7rbj   1/1     Running   1          4m29s   10.244.1.68    bletchley004   <none>           <none>
+metallb-speaker-7mncc                 1/1     Running   0          4m29s   192.168.0.81   bletchley004   <none>           <none>
+metallb-speaker-hxmt7                 1/1     Running   0          4m29s   192.168.0.80   bletchley005   <none>           <none>
+metallb-speaker-mtddz                 1/1     Running   0          4m29s   192.168.0.82   bletchley003   <none>           <none>
+metallb-speaker-wst7m                 1/1     Running   0          4m29s   192.168.0.84   bletchley001   <none>           <none>
+metallb-speaker-xnwcr                 1/1     Running   0          4m29s   192.168.0.83   bletchley002   <none>           <none>
+```
+
+Interestingly to me is there is a listener pod running on each node with an IP already configured to be the externally reachable IP of each host on my internal LAN. Pretty cool.
+
+### Nginx
+
+Now I can install nginx ingress controller which will get an IP from MetalLB. Similarly to metallb, I had to change the repo for nginx to point to github, as the one for helm stable used by the guide was deprecated. You can install nginx to the cluster by running the following: `source ../kube/metallb-nginx-certmanager/01-install-nginx.sh`, or the `05-00-deploy-metallb-nginx-certmanager.sh` has it combined with metallb and cert manager. The output should look something like the below. 
+
+```
+"ingress-nginx" has been added to your repositories
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "metallb" chart repository
+...Successfully got an update from the "ingress-nginx" chart repository
+...Successfully got an update from the "stable" chart repository
+Update Complete. ⎈Happy Helming!⎈
+NAME: nginx-ingress
+LAST DEPLOYED: Sun Apr 23 15:39:16 2023
+NAMESPACE: kube-system
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+The ingress-nginx controller has been installed.
+It may take a few minutes for the LoadBalancer IP to be available.
+You can watch the status by running 'kubectl --namespace kube-system get services -o wide -w nginx-ingress-ingress-nginx-controller'
+
+An example Ingress that makes use of the controller:
+  apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    name: example
+    namespace: foo
+  spec:
+    ingressClassName: nginx
+    rules:
+      - host: www.example.com
+        http:
+          paths:
+            - pathType: Prefix
+              backend:
+                service:
+                  name: exampleService
+                  port:
+                    number: 80
+              path: /
+    # This section is only required if TLS is to be enabled for the Ingress
+    tls:
+      - hosts:
+        - www.example.com
+        secretName: example-tls
+
+If TLS is enabled for the Ingress, a Secret containing the certificate and key must also be provided:
+
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    name: example-tls
+    namespace: foo
+  data:
+    tls.crt: <base64 encoded cert>
+    tls.key: <base64 encoded key>
+  type: kubernetes.io/tls
+```
+
+You can check the nginx pod with `kubectl get pods -n kube-system -l app.kubernetes.io/name=ingress-nginx -o wide` and using `kubectl get services  -n kube-system -l app.kubernetes.io/name=ingress-nginx -o wide` from the guide:
+
+>Interestingly, Nginx service is deployed in LoadBalancer mode, you can observe MetalLB allocates a virtual IP (column EXTERNAL-IP) to Nginx.
+
+Once I had nginx running, I could not access any services, and I also was getting 404s instead of 503s. It turns out it was because I did not define the [ingressClassName](https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class), which if I'd followed the output suggested Ingress above, it was actually in there, however the [example I've been following](https://greg.jeanmart.me/2020/04/13/self-host-your-media-center-on-kubernetes-wi/) is older and doesn't have it. 
+
+## Media Components Setup
+
+For starters, I'm skipping creating the Persistent Volume, since mine will be dynimically provisioned, and I'm modifying the storage class for the PVC like so: `storageClassName: managed-nfs-storage`.
+
+The entire library of media components could be installed by running the 05-01-deploy-media.sh script in the deploy directory, or they can be installed individually from helm via the scripts below.
+
+To install transmission-openvpn, run the following from the deploy directory:
+
+`source ../kube/media/00-install-transmission-openvpn.sh`
+
+To install jackett, run the following: 
+
+`source ../kube/media/01-install-jackett.sh`
 
 # One Off Commands
 Command to run test playbook:
