@@ -377,3 +377,7 @@ Run playbook to update docker daemon json file with ./config-files/etc/docker/da
   - ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/01-kube.yml -u ubuntu --tags "docker-daemon-json"```
   - ```ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "cat /etc/docker/daemon.json"```
   - ```ansible -i ./ansible/inventory/hosts all -a "reboot" -u ubuntu --become```
+
+Turns out a module was no longer enabled by default that is needed
+  - https://kubernetes.io/docs/setup/production-environment/container-runtimes/
+  - https://community.sisense.com/t5/knowledge/kubernetes-dns-linux-issue-caused-by-missing-br-netfilter-kernel/ta-p/5399

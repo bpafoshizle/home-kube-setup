@@ -1,1 +1,1 @@
-ansible-playbook -i ../ansible/inventory/hosts ../ansible/99-disable-ipv6.yml -u ubuntu
+ansible-playbook -i ../ansible/inventory/hosts ../ansible/99-enable-ipv6.yml -u ubuntu
