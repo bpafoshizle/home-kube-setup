@@ -97,6 +97,24 @@
         state: present
       with_items: "{{ groups['all'] }}"
       when: hostvars[item].ansible_default_ipv4.address is defined
+
+    # Kubernetes needs the br_netfilter and overlay modules added to /etc/modules-load.d and loaded.
+    - name: copy the k8s.conf file to /etc/modules-load.d
+      become: true
+      copy:
+        src: ./config-files/etc/modules-load.d/k8s.conf
+        dest: /etc/modules-load.d/k8s.conf
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+      tags:
+        - copy-config-modules-load
+      
+    - name: load the br_netfilter and overlay modules
+      become: true
+      shell: 'modprobe br_netfilter && modprobe overlay'
+      tags:
+        - load-modules
     
     # Kubernetes needs iptables to be configured to see bridged network traffic
     - name: configure iptables to see bridged network traffic
@@ -107,10 +125,14 @@
         owner: root
         group: root
         mode: u=rw,g=r,o=r
+      tags:
+        - copy-config-sysctl-d
     
     - name: reload system sysctl.d to pick up iptables changes
       become: true
       command: sysctl --system
+      tags:
+        - reload-sysctl-d
     
     # Add kubernetes repo, install components, and disable apt-updates for those
     - name: add the packages.cloud.google.com atp key

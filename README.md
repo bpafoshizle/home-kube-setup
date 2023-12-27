@@ -170,7 +170,7 @@ Command to check and add the flag permanently to `/etc/kubernetes/manifests/kube
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/01-kube.yml --tags kube-apiserver-enable-aggregator --check```
 
 # Upgrade Kubernetes Version
-Upgrading kubernetes requires updating 3 components on each node, starting with control plane and then moving on to workers: kubeadm, kubelet, and kubectl. This is build into the `04-upgrade-kube.yml` ansible playbook. It is unsupported to skip minor versions (middle number in the v##.##.## versioning format), but you can skip all the patch versions (third number). Therefore before upgrading, we check all possible versions, and choose the highest patch number of the next minor version and pass that to the playbook. I've successfully used this playbook to upgrade from the following versions:
+Upgrading kubernetes requires updating 3 components on each node, starting with control plane and then moving on to workers: kubeadm, kubelet, and kubectl. This is built into the `04-upgrade-kube.yml` ansible playbook. It is unsupported to skip minor versions (middle number in the v##.##.## versioning format), but you can skip all the patch versions (third number). Therefore before upgrading, we check all possible versions, and choose the highest patch number of the next minor version and pass that to the playbook. I've successfully used this playbook to upgrade from the following versions:
 
 |From|To|
 |----|--|
@@ -209,6 +209,18 @@ Attempting to upgrade from 1.24.13 to 1.25.9, I ran into the following error:
 ```
 
 It seems that even though I didn't run into issues when upgrading from version 1.23 to 1.24, where the switch from Docker to containerd actually occurred, I did run into issues trying to pull this image after the upgrade. The environment vars for kubelet looked correct, but I was able to follow the portion of [this guide](https://kubernetes.io/docs/tasks/administer-cluster/migrating-from-dockershim/change-runtime-containerd/) to update the annotation in the Node object for each host.
+
+Upgrading from 1.25.9 to 1.26.9, I ran into another node not draining with the following error:
+
+```cannot delete Pods declare no controller (use --force to override): default/dnsutils```
+
+It was because I was running a DNS debugging utility as a pod directly without an deployment or other type of controller. I was able to force a drain outside of Ansible, just using kubectl, with:
+
+```kubectl drain  bletchley005 --ignore-daemonsets --delete-emptydir-data --force```
+
+Then I ran the kube upgrade Ansible playbook again on only bletchley005 with the --limit argument like so:
+
+```ansible-playbook -i ansible/inventory/hosts --limit bletchley005 ansible/04-upgrade-kube.yml -e "kubeversion=v1.26.9"```
 
 # Media Setup with Plex, Transmission, Radarr, Sonarr, Lidarr, Readarr, etc
 I'm following [this tutorial](https://greg.jeanmart.me/2020/04/13/self-host-your-media-center-on-kubernetes-wi/) roughly, adapting it to use my dynamic NFS subdir external provisioning deployment. I'll also be needing to work with Helm for the first time to follow this guide, so that needs to be installed on my Mac, which is accomplished via `brew install helm`. Follow this by adding the stable helm repo: `helm repo add stable https://charts.helm.sh/stable`.
@@ -349,7 +361,7 @@ Command to check all CPU temperatures (in millidegrees Celsius):
 
 ```ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "cat /sys/class/thermal/thermal_zone*/temp"```
 
-Command to check disck usage on all hosts:
+Command to check disk usage on all hosts:
 
 ```ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "df -h | grep /dev/mmcblk0p2"```
 
@@ -372,4 +384,12 @@ Command to update packages.cloud.google.com public key:
 - I needed this 2022-12-27 when attempting to update OS packages and getting the error: 
   - `Err:1 https://packages.cloud.google.com/apt kubernetes-xenial InRelease The following signatures couldn't be verified because the public key is not available: NO_PUBKEY B53DC80D13EDEF05 NO_PUBKEY FEEA9169307EA071`
 - ```ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -"```
+  
+Run playbook to update docker daemon json file with ./config-files/etc/docker/daemon.json
+  - ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/01-kube.yml -u ubuntu --tags "docker-daemon-json"```
+  - ```ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "cat /etc/docker/daemon.json"```
+  - ```ansible -i ./ansible/inventory/hosts all -a "reboot" -u ubuntu --become```
 
+Turns out a module was no longer enabled by default that is needed (br_netfilter)
+  - https://kubernetes.io/docs/setup/production-environment/container-runtimes/
+  - https://community.sisense.com/t5/knowledge/kubernetes-dns-linux-issue-caused-by-missing-br-netfilter-kernel/ta-p/5399
