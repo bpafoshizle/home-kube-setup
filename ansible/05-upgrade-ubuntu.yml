@@ -1,0 +1,273 @@
+##################### Kube Control Plane OS Upgrade ##################
+########################################################################
+- name: upgrade OS on control plane nodes
+  hosts: kubecontrol
+  remote_user: ubuntu
+  tasks:
+    - name: drain the node
+      local_action: command kubectl drain {{ inventory_hostname }} --ignore-daemonsets --delete-emptydir-data
+      register: kubectl_drain_output
+      tags:
+        - drain-kubecontrol
+
+    - name: print kubectl drain output
+      debug:
+        msg: "kubectl_drain_output: {{ kubectl_drain_output.stdout }}"
+      tags:
+        - drain-kubecontrol
+
+    - name: ensure update manager core is installed
+      become: true
+      apt: 
+        name: update-manager-core
+        update_cache: yes
+        state: latest
+
+    # Have to unhold and marked packages, or you cannot upgrade the OS:
+    # https://askubuntu.com/questions/1085295/error-while-trying-to-upgrade-from-ubuntu-18-04-to-18-10-please-install-all-av
+    - name: unlock kubelet and kubectl to allow updating
+      become: true
+      command: apt-mark unhold kubelet kubectl  
+
+    - name: Run the equivalent of "apt-get update" as a separate step
+      become: true
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Upgrade all packages to the latest version for the OS (apt-get dist-upgrade)
+      become: true
+      ansible.builtin.apt:
+        upgrade: dist
+
+    # Some packages require reboots, so reboot to prevent the error:
+    # "You have not rebooted after updating a package which requires a reboot. Please reboot before upgrading."
+    - name: Unconditionally reboot the machine and wait 10 minutes. Verify it's back up.
+      become: true
+      ansible.builtin.reboot:        
+
+    - name: Upgrade Ubuntu with do-release-upgrade non-interactive
+      become: true
+      shell: do-release-upgrade -f DistUpgradeViewNonInteractive
+
+    # Copy /etc/crictl.yaml to set the runtime and image endpoints to unix:///run/containerd/containerd.sock
+    - name: Copy crictl.yaml 
+      become: true
+      copy:
+        src: ./config-files/etc/crictl.yaml
+        dest: /etc/crictl.yaml
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+      tags:
+        - copy-crictl-yaml-kubecontrol
+
+    - name: ensures /etc/containerd dir exists
+      become: true
+      file: 
+        path: /etc/containerd
+        state: directory
+      tags:
+        - copy-containerd-config-kubecontrol        
+
+    # Copy /etc/containerd/config.toml ensure containerd uses cgroups v2
+    # https://gjhenrique.com/cgroups-k8s/
+    - name: Copy containerd config
+      become: true
+      copy:
+        src: ./config-files/etc/containerd/config.toml
+        dest: /etc/containerd/config.toml
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+      tags:
+        - copy-containerd-config-kubecontrol
+
+    - name: Unconditionally reboot the machine and wait 10 minutes. Verify it's back up.
+      become: true
+      ansible.builtin.reboot:
+      tags:
+        - final-reboot-kubecontrol
+
+    - name: prevent kubelet and kubectl from being updated
+      become: true
+      command: apt-mark hold kubelet kubectl
+      tags:
+        - hold-kube-packages-kubecontrol
+
+    # - name: daemon-reload
+    #   become: true
+    #   shell: systemctl daemon-reload
+    #   tags:
+    #     - daemon-reload-kubecontrol
+
+    # - name: restart kubelet
+    #   become: true
+    #   service:
+    #     name: kubelet
+    #     state: restarted
+    #   tags: 
+    #     - restart-kubelet-kubecontrol
+
+    # - name: restart containerd
+    #   become: true
+    #   service:
+    #     name: containerd
+    #     state: restarted
+    #   tags:
+    #     - restart-containerd-kubecontrol
+
+    - name: uncordon the node
+      local_action: command kubectl uncordon {{ inventory_hostname }}
+      register: kubectl_uncordon_output
+      tags:
+        - uncordon-kubecontrol
+
+    - name: print kubectl uncordon output
+      debug:
+        msg: "kubectl_uncordon_output: {{ kubectl_uncordon_output.stdout }}"
+      tags:
+        - uncordon-kubecontrol
+  tags:
+    - kubecontrol
+
+##################### Kube Compute Nodes OS Upgrade ##################
+########################################################################
+- name: upgrade OS on kubecompute nodes
+  hosts: kubecompute
+  remote_user: ubuntu
+  tasks:
+    - name: drain the node
+      local_action: command kubectl drain {{ inventory_hostname }} --ignore-daemonsets --delete-emptydir-data
+      register: kubectl_drain_output
+
+    - name: print kubectl drain output
+      debug:
+        msg: "kubectl_drain_output: {{ kubectl_drain_output.stdout }}"
+
+    - name: ensure update manager core is installed
+      become: true
+      apt: 
+        name: update-manager-core
+        update_cache: yes
+        state: latest
+
+    # Have to unhold and marked packages, or you cannot upgrade the OS:
+    # https://askubuntu.com/questions/1085295/error-while-trying-to-upgrade-from-ubuntu-18-04-to-18-10-please-install-all-av
+    - name: unlock kubelet and kubectl to allow updating
+      become: true
+      command: apt-mark unhold kubelet kubectl        
+
+    - name: Run the equivalent of "apt-get update" as a separate step
+      become: true
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Upgrade all packages to the latest version for the OS (apt-get dist-upgrade)
+      become: true
+      ansible.builtin.apt:
+        upgrade: dist
+
+    # Some packages require reboots, so reboot to prevent the error:
+    # "You have not rebooted after updating a package which requires a reboot. Please reboot before upgrading."
+    - name: Unconditionally reboot the machine and wait 10 minutes. Verify it's back up.
+      become: true
+      ansible.builtin.reboot:               
+
+    - name: Upgrade Ubuntu with do-release-upgrade non-interactive
+      become: true
+      shell: do-release-upgrade -f DistUpgradeViewNonInteractive
+      tags:
+        - do-release-upgrade
+
+    # Copy /etc/crictl.yaml to set the runtime and image endpoints to unix:///run/containerd/containerd.sock
+    - name: Copy crictl.yaml 
+      become: true
+      copy:
+        src: ./config-files/etc/crictl.yaml
+        dest: /etc/crictl.yaml
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+      tags:
+        - copy-crictl-yaml-kubecompute
+
+    - name: ensures /etc/containerd dir exists
+      become: true
+      file: 
+        path: /etc/containerd
+        state: directory
+      tags:
+        - copy-containerd-config-kubecompute
+
+    # Copy /etc/containerd/config.toml ensure containerd uses cgroups v2
+    # https://gjhenrique.com/cgroups-k8s/
+    - name: Copy containerd config
+      become: true
+      copy:
+        src: ./config-files/etc/containerd/config.toml
+        dest: /etc/containerd/config.toml
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+      tags:
+        - copy-containerd-config-kubecompute
+
+    - name: Unconditionally reboot the machine and wait 10 minutes. Verify it's back up.
+      become: true
+      ansible.builtin.reboot:
+      tags:
+        - final-reboot-kubecompute
+
+    - name: prevent kubelet and kubectl from being updated
+      become: true
+      command: apt-mark hold kubelet kubectl
+      tags:
+        - hold-kube-packages-kubecompute
+
+    # - name: daemon-reload
+    #   become: true
+    #   shell: systemctl daemon-reload
+    #   tags: 
+    #     - daemon-reload-kubecompute
+
+    # - name: restart kubelet
+    #   become: true
+    #   service:
+    #     name: kubelet
+    #     state: restarted
+    #   tags:
+    #     - restart-kubelet-kubecompute
+
+    - name: restart containerd
+      become: true
+      service:
+        name: containerd
+        state: restarted
+      tags:
+        - restart-containerd-kubecompute
+
+    - name: uncordon the node
+      local_action: command kubectl uncordon {{ inventory_hostname }}
+      register: kubectl_uncordon_output
+      tags:
+        - uncordon-kubecompute
+
+    - name: print kubectl uncordon output
+      debug:
+        msg: "kubectl_uncordon_output: {{ kubectl_uncordon_output.stdout }}"
+      tags:
+        - uncordon-kubecompute
+  tags:
+    - kubecompute
+
+# Finally, for some reason, once all was said and done, I had to re-apply flannel to get rid of some
+# flannel-related error messages preventing some pods from running
+# kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml 
+- name: Reapply flannel deployment
+  hosts: kubecontrol
+  remote_user: ubuntu
+  tasks:
+  - name: kubectl apply kube-flannel
+        local_action: command kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml 
+  tags:
+    - apply-flannel

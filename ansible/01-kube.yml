@@ -69,6 +69,39 @@
       tags:
         - docker-daemon-json
 
+    # Copy /etc/crictl.yaml to set the runtime and image endpoints to unix:///run/containerd/containerd.sock
+    - name: copy crictl.yaml 
+      become: true
+      copy:
+        src: ./config-files/etc/crictl.yaml
+        dest: /etc/crictl.yaml
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+      tags:
+        - copy-crictl-yaml
+
+    - name: ensures /etc/containerd dir exists
+      become: true
+      file: 
+        path: /etc/containerd
+        state: directory
+      tags:
+        - copy-containerd-config-kubecontrol        
+
+    # Copy /etc/containerd/config.toml ensure containerd uses cgroups v2
+    # https://gjhenrique.com/cgroups-k8s/
+    - name: Copy containerd config
+      become: true
+      copy:
+        src: ./config-files/etc/containerd/config.toml
+        dest: /etc/containerd/config.toml
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+      tags:
+        - copy-containerd-config-kubecontrol        
+
     - name: check cgroups and swap options for kernel command line file
       become: true
       command: grep -F "cgroup_enable=cpuset cgroup_enable=memory cgroup_memory=1 swapaccount=1" /boot/firmware/cmdline.txt 

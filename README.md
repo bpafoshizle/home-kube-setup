@@ -179,7 +179,9 @@ Upgrading kubernetes requires updating 3 components on each node, starting with 
 |v1.22.17|v1.23.17|
 |v1.23.17|v1.24.13|
 |v1.24.13|v1.25.9|
-|v1.25.9|v1.26.4|
+|v1.25.9|v1.26.9|
+|v1.26.9|v1.27.6|
+|v1.27.6|v1.28.2|
 
 Check all available kube versions:
 `ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "apt-cache madison kubeadm"`
@@ -221,6 +223,40 @@ It was because I was running a DNS debugging utility as a pod directly without a
 Then I ran the kube upgrade Ansible playbook again on only bletchley005 with the --limit argument like so:
 
 ```ansible-playbook -i ansible/inventory/hosts --limit bletchley005 ansible/04-upgrade-kube.yml -e "kubeversion=v1.26.9"```
+
+Upgrading from 1.27.6 to 1.28.2, I started getting an unauthorized error running any kube commands. 
+
+`error: You must be logged in to the server (Unauthorized)` or `error: You must be logged in to the server (the server has asked for the client to provide credentials)`
+
+So I ran the following:
+
+```
+cp ~/.kube/config ~/.kube/config-backup-2023-12-27
+cp ~/.kube/bletchley-config ~/.kube/bletchley-config-backup-2023-12-27
+ansible-playbook -i ansible/inventory/hosts ansible/01-kube.yml --tags "copy-kube-config"
+cp ~/.kube/bletchley-config ~/.kube/config 
+```
+
+Incidentally, it had been exactly one year to date (2023-12-27) that I last downloaded the kube config file from the cluster. So I made a backup of my existing configs, and then used ansible to download the latest from the control plane node, replaced the default config, and things started working again. 
+
+# Upgrade OS (Ubuntu Version)
+At the end of 2023, I needed to upgrade my Unbuntu OS from 20.04 LTS to 22.04 LTS. In order to do that, I needed to update all the packages, get Kubernetes to the latest version possible for 20.04 (at the time, v1.28.2), and unhold the held kube packages. According to [this stack exchange post](https://askubuntu.com/questions/1085295/error-while-trying-to-upgrade-from-ubuntu-18-04-to-18-10-please-install-all-av), you get the error I was getting if you have any packages marked to hold. Trying to run `do-release-upgrade` without unmarking them would just result in the following message and a non-zero return code: `Please install all available updates for your release before upgrading.`
+
+Once I added that task in the playbook, you can run the new playbook I created for the upgrade:
+
+```ansible-playbook -i ansible/inventory/hosts ansible/05-upgrade-ubuntu.yml```
+
+I ran into a few issues with this first upgrade. I believe I have accounted for them in the `05-upgrade-ubuntu.yml` playbook (as well as backported to `01-kube.yml`), but I'm also noting them below for future reference. 
+
+- First, you have to ensure you don't have any packages marked as held before Ubuntu's `do-release-upgrade` will work, even if you have ensured those held packages are at their latest version. So for me, this meant unholding kubelet and kubectl before doing the `dist-upgrade`. 
+- Second (and this one took an evening and the better part of a day to debug), Ubuntu 22.04 switched to cgroups v2, as explained well [here](https://gjhenrique.com/cgroups-k8s/), and to a lesser extent [here (only descibes the workaround)](https://blog.nuvotex.de/ubuntu-22-04-or-21-10-kubernetes-cgroups-v2/). This was causing etcd to continually by killed with `etcd received signal; shutting down` showing up in the container logs (seen with `crictl` - more on this later) and/or the kubelet `journalctl` (more on this later as well) log. Since etcd was being killed, kube-apiserver was also failing, and then everything that depended on it (pretty much everything) was also failing. So kube container logs and kubelet logs were filled with `CrashLoopBackOff`'s everywhere, and running something as simple as `kubectl version` would sometimes work (during the brief intervals where kube-apiserver was running before crashing), and other times it would return simple connection errors since the apiserver was down: `The connection to the server xxx.xxx.xxx.xxx:6443 was refused - did you specify the right host or port?`. To fix all this, I took the approach in the first link once I came across it, which was to configure containerd to actually use cgroups v2, as opposed to the workaround discussed in both posts, which would just make Ubuntu's systemd fall back to using cgroups v1 behavior. This is accomplished by copying a config to `/etc/containerd/config.toml`. Once I did that, I had to restart containerd with `systemctl restart containerd` and then `systemctl restart kubelet` a time or two for good measure.
+  - As a detour on this debug path, I also started using the [`crictl`](https://github.com/kubernetes-sigs/cri-tools/blob/master/docs/crictl.md) tool to view images and debug containers at the "docker/container" layer as opposed to having to go through kubectl "kubernetes api" layer, since kubectl wasn't working at this time due to kube-apiserver being down sporadically. This is an independent, but related, tool with separate configuration. At first, I couldn't use it because it [errored](https://www.reddit.com/r/kubernetes/comments/16ip8jq/how_do_i_fix_what_is_causing_these_warnings_on/) looking for `/var/run/dockershim.sock` which I'd migrated Kubernetes away from in favor of containerd in a previous kube upgrade and did not function on my system. To get crictl to function correctly, I followed the direction [here](https://github.com/kubernetes-sigs/cri-tools/issues/153#issuecomment-1545503561) to configure crictl to use containerd. Some useful commands (works similarly to docker - run on control plane node (bletchley001))
+    - View all containers running and failed: `sudo crictl ps --all`
+    - View all images: `sudo crictl images`
+    - Tail the logs of a running container: `sudo crictl logs -f [container_id]`
+  - I also had to use journalctl quite a bit to look at system logs for services (containerd, kubelet)
+    - Tail the last 100 lines of the kubelet logs: `journalctl -u kubelet -n 100 -f`
+- Lastly, I also, for some reason, had to re-apply flannel, since I was seeing some [flannel related error messages](https://github.com/kubernetes-sigs/kind/issues/1340) (`failed to find plugin "flannel" in path [/opt/cni/bin]`) that seemed to be preventing some pods from starting. 
 
 # Media Setup with Plex, Transmission, Radarr, Sonarr, Lidarr, Readarr, etc
 I'm following [this tutorial](https://greg.jeanmart.me/2020/04/13/self-host-your-media-center-on-kubernetes-wi/) roughly, adapting it to use my dynamic NFS subdir external provisioning deployment. I'll also be needing to work with Helm for the first time to follow this guide, so that needs to be installed on my Mac, which is accomplished via `brew install helm`. Follow this by adding the stable helm repo: `helm repo add stable https://charts.helm.sh/stable`.
