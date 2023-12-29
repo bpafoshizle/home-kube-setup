@@ -1,6 +1,6 @@
 ##################### Kube Control Plane Node Upgrades ##################
 ########################################################################
-- name: upgrate kube on control plane nodes
+- name: upgrade kube on control plane nodes
   hosts: kubecontrol
   remote_user: ubuntu
   tasks:
