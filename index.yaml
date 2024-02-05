@@ -1,0 +1,13 @@
+apiVersion: v1
+entries:
+  rustdesk-server:
+  - apiVersion: v1
+    appVersion: 1.1.10-3
+    created: "2024-02-04T20:56:28.26515-06:00"
+    description: Helmchart for deploying Rust desk Server
+    digest: d59086bc851c6c0bca0a15ea6efef1768937670c44d4a7f7b3a79c27a20ac6d4
+    name: rustdesk-server
+    urls:
+    - https://bpafoshizle.github.io/home-kube-setup/rustdesk-server-0.0.1.tgz
+    version: 0.0.1
+generated: "2024-02-04T20:56:28.264495-06:00"
