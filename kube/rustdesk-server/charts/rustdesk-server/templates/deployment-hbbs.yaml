@@ -40,9 +40,9 @@ spec:
             {{- toYaml .Values.hbbs.ressources | nindent 12 }}
           volumeMounts:
             - mountPath: /root
-              name: rustdesk-data
+              name: rustdesk-server-data
       restartPolicy: Always
       volumes:
-        - name: rustdesk-data
+        - name: rustdesk-server-data
           persistentVolumeClaim:
-            claimName: rustdesk-data
+            claimName: rustdesk-server-data
