@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rust-hbbs-service-tcp
+  namespace: {{ .Values.namespace }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: "21115"
+      port: 21115
+      targetPort: 21115
+    - name: "21116"
+      port: 21116
+      targetPort: 21116
+    - name: "21118"
+      port: 21118
+      targetPort: 21118
+  selector:
+    app.kubernetes.io/name: rust-hbbs-service
