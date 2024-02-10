@@ -3,11 +3,11 @@ entries:
   rustdesk-server:
   - apiVersion: v1
     appVersion: 1.1.10-3
-    created: "2024-02-04T21:14:39.284493-06:00"
+    created: "2024-02-10T16:20:39.588581-06:00"
     description: Helmchart for deploying Rust desk Server
-    digest: bac1b0277f2b74f428d2df2a77743b38acd9ae5d71d6f46fd1bd0137a384f6d2
+    digest: 089b6b61711c4a04f03e65220bb57c9a5117991c7739032d1fffa7646f311be4
     name: rustdesk-server
     urls:
-    - https://bpafoshizle.github.io/home-kube-setup/rustdesk-server-0.0.1.tgz
-    version: 0.0.1
-generated: "2024-02-04T21:14:39.283028-06:00"
+    - https://bpafoshizle.github.io/home-kube-setup/rustdesk-server-0.0.2.tgz
+    version: 0.0.2
+generated: "2024-02-10T16:20:39.588038-06:00"
