@@ -9,7 +9,7 @@
 
     - name: Renew certs
       command: kubeadm certs renew all
-      tags
+      tags:
         - renew-certs
 
     - name: Restart kubelet

@@ -379,11 +379,11 @@ Command to run test playbook:
 
 Command to ping all hosts:
 
-```./ansible/99-ping-test.sh```
+```./deploy/99-ping-test.sh```
 
 Command to reboot all hosts:
 
-```./ansible/99-reboot-all.sh```
+```./deploy/99-reboot-all.sh```
 
 Command to update all hosts:
 
