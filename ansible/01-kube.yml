@@ -168,18 +168,26 @@
         - reload-sysctl-d
     
     # Add kubernetes repo, install components, and disable apt-updates for those
-    - name: add the packages.cloud.google.com atp key
+    - name: add the pkgs.k8s.io atp key for the specific version
       become: true
-      shell: 'curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -'
+      # Param passed in is e.g. v1.29.7 and needs to end up with just vmajor.minor, e.g. v1.29
+      shell: "curl -fsSL https://pkgs.k8s.io/core:/stable:/{{ kubeversion | regex_replace('\\.[0-9]+$', '') }}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg --yes"
+      tags:
+        - add-k8s-apt-key
+
 
     - name: add the kubernetes repo to ubuntu sources
       become: true
-      copy:
-        src: ./config-files/etc/apt/sources.list.d/kubernetes.list
+      template:
+        src: ./config-files/etc/apt/sources.list.d/kubernetes.list.j2
         dest: /etc/apt/sources.list.d/kubernetes.list
         owner: root
         group: root
         mode: u=rw,g=r,o=r
+      vars:
+        kubeversion: "{{ kubeversion }}"
+      tags:
+        - set-kubernetes-apt-source
 
     - name: install kubelet, kubeadm, and kubectl
       become: true
