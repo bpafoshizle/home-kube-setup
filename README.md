@@ -131,28 +131,19 @@ kubectl apply -f deploy/class.yaml
 I'm initially going to go with [Kubernetes Dashboard](https://github.com/kubernetes/dashboard). 
 
 ```bash
-mkdir kube/kubernetes-dashboard && cd kube/kubernetes-dashboard && wget https://raw.githubusercontent.com/kubernetes/dashboard/v2.4.0/aio/deploy/recommended.yaml
-kubectl apply -f recommended.yaml
+cd deploy 
+source 04-01-deploy-kubernetes-dashboard.sh 
 ```
-
-Without admin, you can't do much with the dashboard. To grant the kubernetes-dashboard service account, run: 
-
-```kubectl delete clusterrolebinding/kubernetes-dashboard && kubectl apply -f dashboard-admin.yaml```
-
-To find the name of your kubernetes-dashboard service account token secret, run:
-
-```kubectl -n kubernetes-dashboard get secrets```
 
 To get the bearer token of the kubernetes-dashboard service account to be used to log in to the dashboard UI, run:
 
-```kubectl -n kubernetes-dashboard get secret kubernetes-dashboard-token-kfl8c -o jsonpath='{.data.token}' | base64 --decode```
+```kubectl get secret admin-user -n kubernetes-dashboard -o jsonpath={".data.token"} | base64 -d```
 
-To start the proxy, run:
+To start the kong-proxy, run:
 
-```kubectl proxy```
+```kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard-kong-proxy 8443:443```
 
-Then navigate to: 
-http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/
+Then navigate to: https://localhost:8443/
 
 ## Metrics
 By default, while you can see tons of info with Kubernetes Dashboard, you cannot see the CPU and memory usage of individual pods and resources running in the cluster. To enable that, you need to install [metrics-server](https://github.com/kubernetes-sigs/metrics-server), which can be done like so:
