@@ -1,0 +1,2 @@
+{# Param passed in is e.g. v1.29.7 and needs to end up with just vmajor.minor, e.g. v1.29 #}
+deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/{{ kubeversion | regex_replace('\\.[0-9]+$', '') }}/deb/ /

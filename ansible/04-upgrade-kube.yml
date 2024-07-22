@@ -1,5 +1,40 @@
 ##################### Kube Control Plane Node Upgrades ##################
 ########################################################################
+- name: set key and apt source for desired kube version on all hosts
+  hosts: all
+  remote_user: ubuntu
+  tasks:
+    - name: add the pkgs.k8s.io atp key for the specific version
+      become: true
+      # Param passed in is e.g. v1.29.7 and needs to end up with just vmajor.minor, e.g. v1.29
+      shell: "curl -fsSL https://pkgs.k8s.io/core:/stable:/{{ kubeversion | regex_replace('\\.[0-9]+$', '') }}/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg --yes"
+      tags:
+        - add-k8s-apt-key
+
+    - name: add the kubernetes repo to ubuntu sources
+      become: true
+      template:
+        src: ./config-files/etc/apt/sources.list.d/kubernetes.list.j2
+        dest: /etc/apt/sources.list.d/kubernetes.list
+        owner: root
+        group: root
+        mode: u=rw,g=r,o=r
+      vars:
+        kubeversion: "{{ kubeversion }}"
+      tags:
+        - set-kubernetes-apt-source
+    
+    - name: update the apt sources
+      become: true
+      apt:
+        update_cache: yes
+      tags:
+        - update-apt-source
+
+    
+
+        
+
 - name: upgrade kube on control plane nodes
   hosts: kubecontrol
   remote_user: ubuntu
@@ -12,7 +47,7 @@
       become: true
       apt:
         pkg:
-        - kubeadm={{ kubeversion | regex_replace('^v', '') }}-00
+        - kubeadm={{ kubeversion | regex_replace('^v', '') }}-1.1
         update_cache: yes
 
     - name: prevent kubeadm from being updated
@@ -77,7 +112,7 @@
 
     - name: upgrade kubelet and kubectl
       become: true
-      shell: "apt-get update && apt-get install -y kubelet={{ kubeversion | regex_replace('^v', '') }}-00 kubectl={{ kubeversion | regex_replace('^v', '') }}-00"
+      shell: "apt-get update && apt-get install -y kubelet={{ kubeversion | regex_replace('^v', '') }}-1.1 kubectl={{ kubeversion | regex_replace('^v', '') }}-1.1"
       register: apt_get_kubelet_kubectl_output
 
     - name: print apt-get kubelet and kubectl output
@@ -129,7 +164,7 @@
       become: true
       apt:
         pkg:
-        - kubeadm={{ kubeversion | regex_replace('^v', '') }}-00
+        - kubeadm={{ kubeversion | regex_replace('^v', '') }}-1.1
         update_cache: yes
 
     - name: prevent kubeadm from being updated
@@ -172,7 +207,7 @@
 
     - name: upgrade kubelet and kubectl
       become: true
-      shell: "apt-get update && apt-get install -y kubelet={{ kubeversion | regex_replace('^v', '') }}-00 kubectl={{ kubeversion | regex_replace('^v', '') }}-00"
+      shell: "apt-get update && apt-get install -y kubelet={{ kubeversion | regex_replace('^v', '') }}-1.1 kubectl={{ kubeversion | regex_replace('^v', '') }}-1.1"
       register: apt_get_kubelet_kubectl_output
     
     - name: print apt-get kubelet and kubectl output
