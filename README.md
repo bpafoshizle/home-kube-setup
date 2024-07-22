@@ -182,11 +182,13 @@ Upgrading kubernetes requires updating 3 components on each node, starting with 
 |v1.25.9|v1.26.9|
 |v1.26.9|v1.27.6|
 |v1.27.6|v1.28.2|
-|v1.28.2|v1.29.7 *(pending)* |
+|v1.28.2|v1.29.7|
+|v1.29.7|v1.30.3|
 
 Attempting to upgrade from 1.28.2 to 1.29.* was failing on 2024-07-21, because "with the change to the new Kubernetes images repo, the installation steps are no longer backward compatible, and we have to be explicit about the desired version for the apt source file and gpg key." - according to [this](https://forum.linuxfoundation.org/discussion/864693/the-repository-http-apt-kubernetes-io-kubernetes-xenial-release-does-not-have-a-release-file) forum discussion.
 
 Therefore, now I have made the ./ansible/config-files/etc/apt/sources.list.d/kubernetes.list file into a jinja (.j2) template. You can start by running the following to update the apt key and the apt source list to the desired kube version of kube. These are also just part of the playbook and don't necessarily need to be run separately unless you want to be explicit about what's going on.
+
 `ansible-playbook -i ./ansible/inventory/hosts -u ubuntu --become ./ansible/04-upgrade-kube.yml -e "kubeversion=v1.29.7" --tags "add-k8s-apt-key"`
 
 `ansible-playbook -i ./ansible/inventory/hosts -u ubuntu --become ./ansible/04-upgrade-kube.yml -e "kubeversion=v1.29.7" --tags "set-kubernetes-apt-source"`
