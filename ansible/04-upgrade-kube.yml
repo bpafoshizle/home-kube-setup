@@ -1,4 +1,4 @@
-##################### Kube Control Plane Node Upgrades ##################
+################### Set up kube apt repos on all hosts #################
 ########################################################################
 - name: set key and apt source for desired kube version on all hosts
   hosts: all
@@ -31,10 +31,8 @@
       tags:
         - update-apt-source
 
-    
-
-        
-
+##################### Kube Control Plane Node Upgrades ##################
+########################################################################
 - name: upgrade kube on control plane nodes
   hosts: kubecontrol
   remote_user: ubuntu
