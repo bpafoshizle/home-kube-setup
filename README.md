@@ -177,15 +177,16 @@ Upgrading kubernetes requires updating 3 components on each node, starting with 
 |v1.29.7|v1.30.3|
 |v1.30.3|v1.30.6|
 |v1.30.6|v1.31.4|
+|v1.31.4|v1.32.0|
 
 
 Attempting to upgrade from 1.28.2 to 1.29.* was failing on 2024-07-21, because "with the change to the new Kubernetes images repo, the installation steps are no longer backward compatible, and we have to be explicit about the desired version for the apt source file and gpg key." - according to [this](https://forum.linuxfoundation.org/discussion/864693/the-repository-http-apt-kubernetes-io-kubernetes-xenial-release-does-not-have-a-release-file) forum discussion.
 
 Therefore, now I have made the ./ansible/config-files/etc/apt/sources.list.d/kubernetes.list file into a jinja (.j2) template. You can start by running the following to update the apt key and the apt source list to the desired kube version of kube. These are also just part of the playbook and don't necessarily need to be run separately unless you want to be explicit about what's going on.
 
-`ansible-playbook -i ./ansible/inventory/hosts -u ubuntu --become ./ansible/04-upgrade-kube.yml -e "kubeversion=v1.31.4" --tags "add-k8s-apt-key"`
+`ansible-playbook -i ./ansible/inventory/hosts -u ubuntu --become ./ansible/04-upgrade-kube.yml -e "kubeversion=v1.32.0" --tags "add-k8s-apt-key"`
 
-`ansible-playbook -i ./ansible/inventory/hosts -u ubuntu --become ./ansible/04-upgrade-kube.yml -e "kubeversion=v1.31.4" --tags "set-kubernetes-apt-source"`
+`ansible-playbook -i ./ansible/inventory/hosts -u ubuntu --become ./ansible/04-upgrade-kube.yml -e "kubeversion=v1.32.0" --tags "set-kubernetes-apt-source"`
 
 `ansible-playbook -i ./ansible/inventory/hosts -u ubuntu --become ./ansible/04-upgrade-kube.yml --tags "update-apt-source"`
 
@@ -193,15 +194,15 @@ Check all available kube versions (NOTE: new vesions show after adding to `/etc/
 `ansible -i ./ansible/inventory/hosts -u ubuntu --become all -m shell -a "apt-cache madison kubeadm"`
 
 Pass the desired version to the playbook (again minor versions cannot be skipped):
-`ansible-playbook -i ansible/inventory/hosts ansible/04-upgrade-kube.yml -e "kubeversion=v1.31.4"`
+`ansible-playbook -i ansible/inventory/hosts ansible/04-upgrade-kube.yml -e "kubeversion=v1.32.0"`
 
 Or you can separate the control plane from worker node plays with tags.
 
 Upgrade control plane to a specific version: 
-`ansible-playbook -i ansible/inventory/hosts ansible/04-upgrade-kube.yml --tags "kubecontrol" -e "kubeversion=v1.31.4"`
+`ansible-playbook -i ansible/inventory/hosts ansible/04-upgrade-kube.yml --tags "kubecontrol" -e "kubeversion=v1.32.0"`
 
 Upgrade worker nodes to a specific version:
-`ansible-playbook -i ansible/inventory/hosts ansible/04-upgrade-kube.yml --tags "kubecompute" -e "kubeversion=v1.31.4"`
+`ansible-playbook -i ansible/inventory/hosts ansible/04-upgrade-kube.yml --tags "kubecompute" -e "kubeversion=v1.32.0"`
 
 Upgrading between 1.23.17 to 1.24.13, the upgrade apparently didn't regenerate the kubelet, which caused an error in kubelet logs (check these with) about an invalid flag `Error: failed to parse kubelet flag: unknown flag: --network-plugin`. To fix, I had to do the following to manually force it to regenerate the `/var/lib/kubelet/kubeadm-flags.env` file. Command to force a file update: `kubeadm init phase kubelet-start`
 
