@@ -268,6 +268,6 @@
   remote_user: ubuntu
   tasks:
   - name: kubectl apply kube-flannel
-        local_action: command kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml 
+    local_action: command kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml 
   tags:
     - apply-flannel
