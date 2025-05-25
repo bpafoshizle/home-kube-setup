@@ -392,6 +392,9 @@ Command to reboot all hosts:
 
 ```./deploy/99-reboot-all.sh```
 
+Command to shutdown all hosts:
+```ansible -i ./ansible/inventory/hosts all -m command -a "shutdown -h now" -u ubuntu --become```
+
 Command to update all hosts:
 
 ```ansible-playbook -i ./ansible/inventory/hosts ./ansible/99-update.yml```
