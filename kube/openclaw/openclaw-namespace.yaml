@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openclaw
+  labels:
+    app: openclaw
+    app.kubernetes.io/name: openclaw
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openclaw-citepulse
+  labels:
+    app: openclaw-citepulse
+    app.kubernetes.io/name: openclaw-citepulse

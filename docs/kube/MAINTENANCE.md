@@ -7,7 +7,7 @@ This document contains detailed information on the initial setup, routine mainte
 ### Pi SSH Setup
 As a prerequisite to running ansible automation against hosts in the cluster, we first need to add ssh authorized users to each host. Relevant public keys are stored in my github account at: https://github.com/bpafoshizle.keys. Adding these keys to `~/.ssh/authorized_keys` on the managed node allows ansible commands to be executed on the control node without username and password prompts.
 
-The [00-get-ssh-authorized-users.sh](../deploy/00-get-ssh-authorized-users.sh) script can be run on each managed node to add the ssh keys for control nodes.
+The [00-get-ssh-authorized-users.sh](../../deploy/00-get-ssh-authorized-users.sh) script can be run on each managed node to add the ssh keys for control nodes.
 
 ### Links and Tutorials Followed
 - [Primary Kube on Pis Article](https://opensource.com/article/20/6/kubernetes-raspberry-pi)
@@ -63,9 +63,9 @@ The cluster uses [Kubernetes NFS Subdir External Provisioner](https://github.com
 
 ### Preconfiguration
 1. **NAS Setup**: Configured storage pool, volume, and shared NFS folder.
-   - ![NAS storage pool config](images/synology-nas-storage-pool-config.png)
-   - ![NAS volume config](images/synology-nas-volume-config.png)
-   - ![NAS shared folder and nfs config](images/synology-nas-shared-folder-nfs-config.png)
+   - ![NAS storage pool config](../images/synology-nas-storage-pool-config.png)
+   - ![NAS volume config](../images/synology-nas-volume-config.png)
+   - ![NAS shared folder and nfs config](../images/synology-nas-shared-folder-nfs-config.png)
 2. **NFS Security**: Configured to allow cluster hosts. Root mapping (`no_root_squash` or `map all users to admin`) is generally required since kube services run as root.
 3. **Static IP**: Reserved NAS IP in router.
 
@@ -105,7 +105,7 @@ kubectl apply -f kube/metrics-server/components.yaml
 ```
 
 Note: Needs aggregator routing enabled in `kube-apiserver`.
-![Kubernetes Dashboard](images/kubernetes-dashboard-edit-resource.png)
+![Kubernetes Dashboard](../images/kubernetes-dashboard-edit-resource.png)
 
 ```bash
 ansible-playbook -i ./ansible/inventory/hosts ./ansible/01-kube.yml --tags kube-apiserver-enable-aggregator --check
