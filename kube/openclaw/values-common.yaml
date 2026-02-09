@@ -1,0 +1,29 @@
+# Shared values for all OpenClaw instances deployed to home-kube cluster
+# Infrastructure-level settings only. Per-instance config (including
+# openclaw.json) lives in values-personal.yaml / values-citepulse.yaml.
+
+app-template:
+  controllers:
+    main:
+      initContainers:
+        init-config:
+          env:
+            - name: CONFIG_MODE
+              value: "merge"
+      containers:
+        main:
+          envFrom:
+            - secretRef:
+                name: openclaw-env-secret
+
+  service:
+    main:
+      type: LoadBalancer
+
+  persistence:
+    data:
+      storageClass: managed-nfs-storage
+
+  networkpolicies:
+    main:
+      enabled: false

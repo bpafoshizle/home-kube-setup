@@ -1,0 +1,125 @@
+# Device inventory for the home network.
+# Fields: hostname, ip, mac, serial, os, role, location, owner, notes, tags, status
+
+devices:
+  - hostname: bletchley001
+    ip: 192.168.0.84
+    mac: ""
+    serial: ""
+    os: "Ubuntu Server"
+    role: "kube-control-plane"
+    location: "home-office"
+    owner: "Barret"
+    notes: ""
+    tags: [kube, pi]
+    status: "active"
+  - hostname: bletchley002
+    ip: 192.168.0.83
+    mac: ""
+    serial: ""
+    os: "Ubuntu Server"
+    role: "kube-worker"
+    location: "home-office"
+    owner: "Barret"
+    notes: ""
+    tags: [kube, pi]
+    status: "active"
+  - hostname: bletchley003
+    ip: 192.168.0.82
+    mac: ""
+    serial: ""
+    os: "Ubuntu Server"
+    role: "kube-worker"
+    location: "home-office"
+    owner: "Barret"
+    notes: ""
+    tags: [kube, pi]
+    status: "active"
+  - hostname: bletchley004
+    ip: 192.168.0.81
+    mac: ""
+    serial: ""
+    os: "Ubuntu Server"
+    role: "kube-worker"
+    location: "home-office"
+    owner: "Barret"
+    notes: ""
+    tags: [kube, pi]
+    status: "active"
+  - hostname: bletchley005
+    ip: 192.168.0.80
+    mac: ""
+    serial: ""
+    os: "Ubuntu Server"
+    role: "kube-worker"
+    location: "home-office"
+    owner: "Barret"
+    notes: ""
+    tags: [kube, pi]
+    status: "active"
+  - hostname: lynott
+    ip: "192.168.0.43"
+    mac: "00:11:32:F9:AA:6F"
+    serial: "2150RYRRVEF2G"
+    os: "Synology DSM"
+    role: "nas"
+    location: "home-office"
+    owner: "Barret"
+    notes: "NFS storage. Synology 1520+"
+    tags: [storage, nas]
+    status: "active"
+  - hostname: OpenWrt
+    ip: "192.168.0.1"
+    mac: "78:D2:94:7E:C7:F5"
+    serial: ""
+    os: "OpenWRT"
+    role: "router"
+    location: "home-office"
+    owner: "Barret"
+    notes: "Netgear Nighthawk AC2400"
+    tags: [router]
+    status: "active"
+  - hostname: umbrel
+    ip: "192.168.0.26"
+    mac: ""
+    serial: ""
+    os: "umbrelOS 1.5"
+    role: "bitcoin-node"
+    location: "home-office"
+    owner: "Barret"
+    notes: "umbrelOS 1.5. Raspberry Pi. Bitcoin node. Lightning node. Lightning Terminal. Electrs, mempool"
+    tags: [pi, bitcoin]
+    status: "active"
+  - hostname: octopi
+    ip: "192.168.0.214"
+    mac: ""
+    serial: ""
+    os: "octopi"
+    role: "3d-printer"
+    location: "home-office"
+    owner: "Barret"
+    notes: "1.1.0"
+    tags: [pi, 3d-printer]
+    status: "active"
+  - hostname: octopi-mini
+    ip: "192.168.0.163"
+    mac: ""
+    serial: ""
+    os: "octopi"
+    role: "3d-printer"
+    location: "home-office"
+    owner: "Barret"
+    notes: "1.1.0"
+    tags: [pi, 3d-printer]
+    status: "active"
+  - hostname: bambu-p2s
+    ip: "192.168.0.150"
+    mac: "BC:2A:33:C7:D3:99"
+    serial: ""
+    os: "Bambu Labs"
+    role: "3d-printer"
+    location: "home-office"
+    owner: "Barret"
+    notes: "Bambu Lab P2S (confirm hostname)"
+    tags: [3d-printer]
+    status: "active"

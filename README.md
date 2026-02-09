@@ -51,9 +51,10 @@ Detailed technical guides and historical maintenance logs have been migrated to 
 
 | Document | Description |
 | :--- | :--- |
-| 🛠️ [**Maintenance & Ops**](docs/MAINTENANCE.md) | Initial setup, Ansible commands, persistence (NFS), and daily operations. |
-| 📈 [**Upgrade Log**](docs/UPGRADE_LOG.md) | Kubernetes version history (1.20 → 1.32), OS migrations, and troubleshooting. |
-| 📺 [**Media Stack**](docs/MEDIA_STACK.md) | Plex, Transmission, and the "Arr" suite deployment via Helm. |
+| 🛠️ [**Maintenance & Ops**](docs/kube/MAINTENANCE.md) | Initial setup, Ansible commands, persistence (NFS), and daily operations. |
+| 📈 [**Upgrade Log**](docs/kube/UPGRADE_LOG.md) | Kubernetes version history (1.20 → 1.32), OS migrations, and troubleshooting. |
+| 📺 [**Media Stack**](docs/kube/MEDIA_STACK.md) | Plex, Transmission, and the "Arr" suite deployment via Helm. |
+| 🤖 [**OpenClaw**](docs/kube/OPENCLAW.md) | AI assistant deployment — two instances (Neumann + Anton) via Helm. |
 
 ## Quick Start
 
