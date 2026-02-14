@@ -115,7 +115,12 @@ app-template:
               # Add skill slugs to the list below to install them declaratively.
               cd /home/node/.openclaw/workspace
               mkdir -p skills
-              for skill in weather; do
+              if [ -n "$CLAWHUB_TOKEN" ]; then
+                log "Logging into ClawHub..."
+                npx -y clawhub login --token "$CLAWHUB_TOKEN" --no-browser || true
+              fi
+
+              for skill in weather gog; do
                 if [ -n "$skill" ] && [ ! -d "skills/${skill##*/}" ]; then
                   log "Installing skill: $skill"
                   npx -y clawhub install "$skill" --no-input || true
@@ -124,6 +129,12 @@ app-template:
                 fi
               done
               log "Skills initialization complete"
+          env:
+            - name: CLAWHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-env-secret
+                  key: CLAWHUB_TOKEN
           securityContext:
             runAsUser: 1000
             runAsGroup: 1000
