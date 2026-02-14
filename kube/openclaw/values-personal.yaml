@@ -2,6 +2,9 @@
 # Deployed to namespace: openclaw
 
 app-template:
+  persistence:
+    config:
+      name: openclaw-config
   configMaps:
     config:
       data:

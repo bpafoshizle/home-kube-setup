@@ -4,7 +4,7 @@
 app-template:
   persistence:
     config:
-      name: openclaw-citepulse
+      name: openclaw-citepulse-config
 
   configMaps:
     config:
