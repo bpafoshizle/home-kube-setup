@@ -2,6 +2,11 @@
 # Infrastructure-level settings only. Per-instance config (including
 # openclaw.json) lives in values-personal.yaml / values-citepulse.yaml.
 
+global:
+  # Ensure resource names (like PVCs) always have their identifiers appended
+  # to prevent renames and data loss when adding/removing persistence items.
+  alwaysAppendIdentifierToResourceName: true
+
 app-template:
   controllers:
     main:
@@ -10,11 +15,109 @@ app-template:
           env:
             - name: CONFIG_MODE
               value: "merge"
+          command:
+            - sh
+            - -c
+            - |
+              log() { echo "[$(date -Iseconds)] [init-config] $*"; }
+              log "Starting config initialization"
+              mkdir -p /home/node/.openclaw /home/linuxbrew
+              CONFIG_MODE="${CONFIG_MODE:-merge}"
+
+              if [ "$CONFIG_MODE" = "merge" ] && [ -f /home/node/.openclaw/openclaw.json ]; then
+                log "Mode: merge - merging Helm config with existing config"
+                node -e "
+                  const fs = require('fs');
+                  const existing = JSON.parse(fs.readFileSync('/home/node/.openclaw/openclaw.json', 'utf8'));
+                  const helm = JSON.parse(fs.readFileSync('/config/openclaw.json', 'utf8'));
+                  const deepMerge = (target, source) => {
+                    for (const key of Object.keys(source)) {
+                      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                        target[key] = target[key] || {};
+                        deepMerge(target[key], source[key]);
+                      } else {
+                        target[key] = source[key];
+                      }
+                    }
+                    return target;
+                  };
+                  const merged = deepMerge(existing, helm);
+                  fs.writeFileSync('/home/node/.openclaw/openclaw.json', JSON.stringify(merged, null, 2));
+                "
+                log "Config merged successfully"
+              else
+                log "Mode: overwrite - copying Helm config"
+                cp /config/openclaw.json /home/node/.openclaw/openclaw.json
+              fi
+              chown -R 1000:1000 /home/node/.openclaw /home/linuxbrew
+              log "Config initialization complete"
+
+        init-skills:
+          command:
+            - sh
+            - -c
+            - |
+              log() { echo "[$(date -Iseconds)] [init-skills] $*"; }
+              log "Starting skills initialization"
+
+              # Install Homebrew dependencies
+              if [ ! -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
+                log "Installing Homebrew dependencies..."
+                apt-get update && apt-get install -y build-essential procps curl file git
+                
+                log "Installing Homebrew..."
+                # Run as node user (1000)
+                su node -c 'bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+              fi
+
+              # Add brew to path for this session
+              eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+              if ! command -v gogcli >/dev/null; then
+                log "Installing gogcli..."
+                brew install gogcli
+              fi
+
+              # Original skill installation logic
+              mkdir -p /home/node/.openclaw/workspace
+              cd /home/node/.openclaw/workspace
+              mkdir -p skills
+              if [ -n "$CLAWHUB_TOKEN" ]; then
+                log "Logging into ClawHub..."
+                npx -y clawhub login --token "$CLAWHUB_TOKEN" --no-browser || true
+              fi
+
+              for skill in weather gog; do
+                if [ -n "$skill" ] && [ ! -d "skills/${skill##*/}" ]; then
+                  log "Installing skill: $skill"
+                  npx -y clawhub install "$skill" --no-input || true
+                else
+                  log "Skill already installed: $skill"
+                fi
+              done
+              log "Skills initialization complete"
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+                - DAC_OVERRIDE
+                - FOWNER
+                - SETUID
+                - SETGID
+
       containers:
         main:
           envFrom:
             - secretRef:
                 name: openclaw-env-secret
+          env:
+            - name: PATH
+              value: "/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
   service:
     main:
@@ -23,6 +126,28 @@ app-template:
   persistence:
     data:
       storageClass: managed-nfs-storage
+      advancedMounts:
+        main:
+          init-config:
+            - path: /home/node/.openclaw
+          init-skills:
+            - path: /home/node/.openclaw
+          main:
+            - path: /home/node/.openclaw
+    linuxbrew:
+      enabled: true
+      type: persistentVolumeClaim
+      storageClass: managed-nfs-storage
+      accessMode: ReadWriteOnce
+      size: 10Gi
+      advancedMounts:
+        main:
+          init-config:
+            - path: /home/linuxbrew
+          init-skills:
+            - path: /home/linuxbrew
+          main:
+            - path: /home/linuxbrew
 
   networkpolicies:
     main:
