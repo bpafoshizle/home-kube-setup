@@ -10,7 +10,10 @@ app-template:
             "gateway": {
               "port": 18789,
               "mode": "local",
-              "trustedProxies": ["10.0.0.1"]
+              "trustedProxies": ["10.0.0.1"],
+              "controlUi": {
+                "allowInsecureAuth": true
+              }
             },
 
             "browser": {
@@ -28,7 +31,7 @@ app-template:
               "defaults": {
                 "workspace": "/home/node/.openclaw/workspace",
                 "model": {
-                  "primary": "xai/grok-4-1-fast-reasoning"
+                  "primary": "xai/grok-4-1-fast"
                 },
                 "userTimezone": "America/Chicago",
                 "timeoutSeconds": 600,
