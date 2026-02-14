@@ -5,6 +5,10 @@ app-template:
   persistence:
     config:
       name: openclaw-citepulse-config
+  service:
+    main:
+      annotations:
+        metallb.universe.tf/loadBalancerIPs: 192.168.0.205
 
   configMaps:
     config:

@@ -5,6 +5,10 @@ app-template:
   persistence:
     config:
       name: openclaw-config
+  service:
+    main:
+      annotations:
+        metallb.universe.tf/loadBalancerIPs: 192.168.0.204
   configMaps:
     config:
       data:
