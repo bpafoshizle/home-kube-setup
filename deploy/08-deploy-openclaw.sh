@@ -5,9 +5,11 @@
 # Required environment variables:
 #   OPENCLAW_ANTHROPIC_API_KEY           - Anthropic API key (personal)
 #   OPENCLAW_XAI_API_KEY                 - xAI API key (personal)
+#   OPENCLAW_OPENAI_API_KEY              - OpenAI API key (personal)
 #   OPENCLAW_GATEWAY_TOKEN               - Gateway pairing token (personal)
 #   OPENCLAW_CITEPULSE_ANTHROPIC_API_KEY - Anthropic API key (citepulse)
 #   OPENCLAW_CITEPULSE_XAI_API_KEY       - xAI API key (citepulse)
+#   OPENCLAW_CITEPULSE_OPENAI_API_KEY    - OpenAI API key (citepulse)
 #   OPENCLAW_CITEPULSE_GATEWAY_TOKEN     - Gateway pairing token (citepulse)
 
 set -e
@@ -19,7 +21,8 @@ CHART_DIR="$KUBE_DIR/charts/openclaw"
 # Check required environment variables
 MISSING=""
 for var in OPENCLAW_ANTHROPIC_API_KEY OPENCLAW_XAI_API_KEY OPENCLAW_GATEWAY_TOKEN \
-           OPENCLAW_CITEPULSE_ANTHROPIC_API_KEY OPENCLAW_CITEPULSE_XAI_API_KEY OPENCLAW_CITEPULSE_GATEWAY_TOKEN; do
+           OPENCLAW_CITEPULSE_ANTHROPIC_API_KEY OPENCLAW_CITEPULSE_XAI_API_KEY OPENCLAW_CITEPULSE_GATEWAY_TOKEN \
+           OPENCLAW_CITEPULSE_OPENAI_API_KEY; do
     if [ -z "${!var}" ]; then
         MISSING="$MISSING  $var\n"
     fi
@@ -46,6 +49,7 @@ echo "--- Applying secrets (openclaw) ---"
 OPENCLAW_NAMESPACE=openclaw \
 ANTHROPIC_API_KEY="$OPENCLAW_ANTHROPIC_API_KEY" \
 XAI_API_KEY="$OPENCLAW_XAI_API_KEY" \
+OPENAI_API_KEY="$OPENCLAW_OPENAI_API_KEY" \
 GATEWAY_TOKEN="$OPENCLAW_GATEWAY_TOKEN" \
 CLAWHUB_TOKEN="$OPENCLAW_CLAWHUB_TOKEN" \
 envsubst < "$KUBE_DIR/openclaw-secret.yaml" | kubectl apply -f -
@@ -56,6 +60,7 @@ echo "--- Applying secrets (openclaw-citepulse) ---"
 OPENCLAW_NAMESPACE=openclaw-citepulse \
 ANTHROPIC_API_KEY="$OPENCLAW_CITEPULSE_ANTHROPIC_API_KEY" \
 XAI_API_KEY="$OPENCLAW_CITEPULSE_XAI_API_KEY" \
+OPENAI_API_KEY="$OPENCLAW_CITEPULSE_OPENAI_API_KEY" \
 GATEWAY_TOKEN="$OPENCLAW_CITEPULSE_GATEWAY_TOKEN" \
 CLAWHUB_TOKEN="$OPENCLAW_CITEPULSE_CLAWHUB_TOKEN" \
 envsubst < "$KUBE_DIR/openclaw-secret.yaml" | kubectl apply -f -
