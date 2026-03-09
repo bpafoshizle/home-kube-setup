@@ -2,6 +2,12 @@
 # Deployed to namespace: openclaw-citepulse
 
 app-template:
+  controllers:
+    main:
+      containers:
+        main:
+          env:
+            OPENCLAW_MODELS_ALLOW: "anthropic/claude-sonnet-4-5,anthropic/claude-haiku-4-5,openai/gpt-5-mini,xai/grok-4-1-fast-reasoning,xai/grok-4-1-fast,ollama/gpt-oss:120b,ollama/minimax-m2.5:cloud,ollama/glm-5:cloud"
   persistence:
     config:
       name: openclaw-citepulse-config
@@ -20,7 +26,9 @@ app-template:
               "mode": "local",
               "trustedProxies": ["10.0.0.1"],
               "controlUi": {
-                "allowInsecureAuth": true
+                "allowInsecureAuth": true,
+                "dangerouslyDisableDeviceAuth": true,
+                "allowedOrigins": ["http://192.168.0.205:18789"]
               }
             },
 
@@ -35,11 +43,65 @@ app-template:
               }
             },
 
+            "models": {
+              "providers": {
+                "ollama": {
+                  "baseUrl": "https://ollama.com/v1",
+                  "apiKey": "${OLLAMA_API_KEY}",
+                  "api": "openai-completions",
+                  "models": [
+                    {
+                      "id": "gpt-oss:120b",
+                      "name": "GPT-OSS 120B (Ollama Cloud)",
+                      "reasoning": false,
+                      "input": ["text"],
+                      "cost": {
+                        "input": 0,
+                        "output": 0,
+                        "cacheRead": 0,
+                        "cacheWrite": 0
+                      },
+                      "contextWindow": 131072,
+                      "maxTokens": 1310720
+                    },
+                    {
+                      "id": "minimax-m2.5:cloud",
+                      "name": "MiniMax M2.5 (Ollama Cloud)",
+                      "reasoning": false,
+                      "input": ["text"],
+                      "cost": {
+                        "input": 0,
+                        "output": 0,
+                        "cacheRead": 0,
+                        "cacheWrite": 0
+                      },
+                      "contextWindow": 131072,
+                      "maxTokens": 1310720
+                    },
+                    {
+                      "id": "glm-5:cloud",
+                      "name": "GLM-5 (Ollama Cloud)",
+                      "reasoning": false,
+                      "input": ["text"],
+                      "cost": {
+                        "input": 0,
+                        "output": 0,
+                        "cacheRead": 0,
+                        "cacheWrite": 0
+                      },
+                      "contextWindow": 131072,
+                      "maxTokens": 1310720
+                    }
+                  ]
+                }
+              }
+            },
+
             "agents": {
               "defaults": {
                 "workspace": "/home/node/.openclaw/workspace",
                 "model": {
-                  "primary": "anthropic/claude-haiku-4-5"
+                  "primary": "ollama/glm-5:cloud"
                 },
                 "models": {
                   "anthropic/claude-sonnet-4-5": {
@@ -50,6 +112,15 @@ app-template:
                   },
                   "openai/gpt-5-mini": {
                     "alias": "gpt5mini"
+                  },
+                  "ollama/gpt-oss:120b": {
+                    "alias": "gptoss"
+                  },
+                  "ollama/minimax-m2.5:cloud": {
+                    "alias": "minimax"
+                  },
+                  "ollama/glm-5:cloud": {
+                    "alias": "glm5"
                   },
                   "xai/grok-4-1-fast-reasoning": {
                     "alias": "grok-reasoning"
