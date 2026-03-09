@@ -7,9 +7,9 @@ This document covers the deployment and operation of two OpenClaw instances on t
 | Instance | Name | Namespace | Default Model | Web UI |
 | :--- | :--- | :--- | :--- | :--- |
 | Personal | Neumann | `openclaw` | `xai/grok-4-1-fast-reasoning` | `http://192.168.0.204:18789` |
-| Work | Anton | `openclaw-citepulse` | `anthropic/claude-sonnet-4-5` | `http://192.168.0.205:18789` |
+| Work | Anton | `openclaw-citepulse` | `ollama/glm-5:cloud` | `http://192.168.0.205:18789` |
 
-Both instances have access to both Anthropic and xAI models via API keys in their environment. The "primary" model is the default; other models can be selected per-agent or at runtime in the web UI.
+Both instances have Anthropic, OpenAI, xAI, and Ollama Cloud models available, including `ollama/gpt-oss:120b`, `ollama/minimax-m2.5:cloud`, and `ollama/glm-5:cloud`. Ollama Cloud is configured through its OpenAI-compatible endpoint, and the "primary" model is the default; other models can be selected per-agent or at runtime in the web UI.
 
 ---
 
@@ -56,9 +56,13 @@ The per-instance values files each contain the full `openclaw.json` configuratio
 | :--- | :--- |
 | `OPENCLAW_ANTHROPIC_API_KEY` | Anthropic API key (personal) |
 | `OPENCLAW_XAI_API_KEY` | xAI API key (personal) |
+| `OPENCLAW_OPENAI_API_KEY` | OpenAI API key (personal) |
+| `OPENCLAW_OLLAMA_API_KEY` | Ollama API key (personal) |
 | `OPENCLAW_GATEWAY_TOKEN` | Gateway pairing token (personal) — choose any secure string |
 | `OPENCLAW_CITEPULSE_ANTHROPIC_API_KEY` | Anthropic API key (work) |
 | `OPENCLAW_CITEPULSE_XAI_API_KEY` | xAI API key (work) |
+| `OPENCLAW_CITEPULSE_OPENAI_API_KEY` | OpenAI API key (work) |
+| `OPENCLAW_CITEPULSE_OLLAMA_API_KEY` | Ollama API key (work, required for Ollama Cloud) |
 | `OPENCLAW_CITEPULSE_GATEWAY_TOKEN` | Gateway pairing token (work) — choose any secure string |
 
 Gateway tokens are self-chosen secrets (e.g., `openssl rand -hex 32`). You enter them in the web UI to pair devices.
@@ -133,7 +137,7 @@ Edit the `"primary"` field in the per-instance values file:
 - `kube/openclaw/values-personal.yaml` — Neumann
 - `kube/openclaw/values-citepulse.yaml` — Anton
 
-Then redeploy. Both providers (Anthropic, xAI) remain available in the UI regardless of which is set as primary, as long as the API keys are in the environment.
+Then redeploy. Available providers remain selectable in the UI as long as their API keys are present in the environment and the model is included in that instance's allowlist.
 
 ### Config Mode
 

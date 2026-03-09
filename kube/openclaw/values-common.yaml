@@ -21,7 +21,15 @@ app-template:
             - |
               log() { echo "[$(date -Iseconds)] [init-config] $*"; }
               log "Starting config initialization"
-              mkdir -p /home/node/.openclaw /home/linuxbrew
+              mkdir -p /home/node/.openclaw /home/node/.config /home/linuxbrew
+              if [ -L /home/node/.config/gogcli ]; then
+                tmpdir="$(mktemp -d)"
+                cp -a /home/node/.config/gogcli/. "$tmpdir/" 2>/dev/null || true
+                rm /home/node/.config/gogcli
+                mkdir -p /home/node/.config/gogcli
+                cp -a "$tmpdir/." /home/node/.config/gogcli/ 2>/dev/null || true
+                rm -rf "$tmpdir"
+              fi
               CONFIG_MODE="${CONFIG_MODE:-merge}"
 
               if [ "$CONFIG_MODE" = "merge" ] && [ -f /home/node/.openclaw/openclaw.json ]; then
@@ -49,7 +57,7 @@ app-template:
                 log "Mode: overwrite - copying Helm config"
                 cp /config/openclaw.json /home/node/.openclaw/openclaw.json
               fi
-              chown -R 1000:1000 /home/node/.openclaw /home/linuxbrew
+              chown -R 1000:1000 /home/node/.openclaw /home/node/.config /home/linuxbrew
               log "Config initialization complete"
 
         init-skills:
@@ -59,6 +67,16 @@ app-template:
             - |
               log() { echo "[$(date -Iseconds)] [init-skills] $*"; }
               log "Starting skills initialization"
+
+              mkdir -p /home/node/.config
+              if [ -L /home/node/.config/gogcli ]; then
+                tmpdir="$(mktemp -d)"
+                cp -a /home/node/.config/gogcli/. "$tmpdir/" 2>/dev/null || true
+                rm /home/node/.config/gogcli
+                mkdir -p /home/node/.config/gogcli
+                cp -a "$tmpdir/." /home/node/.config/gogcli/ 2>/dev/null || true
+                rm -rf "$tmpdir"
+              fi
 
               # Install Homebrew dependencies
               if [ ! -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
@@ -95,6 +113,7 @@ app-template:
                   log "Skill already installed: $skill"
                 fi
               done
+              chown -R 1000:1000 /home/node/.openclaw /home/node/.config /home/linuxbrew
               log "Skills initialization complete"
           securityContext:
             runAsUser: 0
@@ -118,6 +137,7 @@ app-template:
           env:
             OPENCLAW_MODELS_ALLOW: "anthropic/claude-sonnet-4-5,anthropic/claude-haiku-4-5,openai/gpt-5-mini,xai/grok-4-1-fast-reasoning,xai/grok-4-1-fast"
             PATH: "/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            XDG_CONFIG_HOME: "/home/node/.config"
 
   service:
     main:
@@ -130,10 +150,16 @@ app-template:
         main:
           init-config:
             - path: /home/node/.openclaw
+            - path: /home/node/.config
+              subPath: xdg-config
           init-skills:
             - path: /home/node/.openclaw
+            - path: /home/node/.config
+              subPath: xdg-config
           main:
             - path: /home/node/.openclaw
+            - path: /home/node/.config
+              subPath: xdg-config
     linuxbrew:
       enabled: true
       type: persistentVolumeClaim
