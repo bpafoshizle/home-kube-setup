@@ -1,0 +1,23 @@
+# Tailscale Connector — Subnet Router
+# Advertises home LAN and cluster CIDRs to the tailnet so that
+# any device on the tailnet can reach services on the home network.
+#
+# Routes:
+#   192.168.0.0/24  — Home LAN (nodes, NAS, router, IoT, etc.)
+#   10.96.0.0/12    — Kubernetes Service CIDR (kubeadm default)
+#   10.244.0.0/16   — Pod CIDR (Flannel default)
+#
+# After applying, approve routes in the Tailscale admin console
+# (or configure autoApprovers in your ACL policy).
+apiVersion: tailscale.com/v1alpha1
+kind: Connector
+metadata:
+  name: home-kube-subnet-router
+spec:
+  replicas: 1
+  hostnamePrefix: home-kube-subnet-router
+  subnetRouter:
+    advertiseRoutes:
+      - "192.168.0.0/24"
+      - "10.96.0.0/12"
+      - "10.244.0.0/16"

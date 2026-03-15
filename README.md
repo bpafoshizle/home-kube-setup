@@ -42,6 +42,7 @@ graph TD
   - **CNI**: Flannel.
   - **Load Balancer**: MetalLB (Layer 2 mode).
   - **Ingress**: Nginx Ingress Controller.
+  - **Remote Access**: Tailscale Kubernetes Operator (subnet router to tailnet).
 - **Storage**: Synology NAS via NFS (dynamic provisioning using `nfs-subdir-external-provisioner`).
 - **Provisioning**: Ansible.
 

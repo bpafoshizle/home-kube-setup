@@ -1,0 +1,55 @@
+# Patch RustDesk services to expose them on the Tailscale tailnet.
+#
+# RustDesk has two services:
+#   - rust-hbbs-service (signaling server — ports 21115, 21116, 21118)
+#   - rust-hbbr-service (relay server — ports 21117, 21119)
+#
+# Apply with:
+#   kubectl apply -f kube/rustdesk-server/expose-rustdesk.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rust-hbbs-service
+  namespace: rustdesk-server
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: "rustdesk-hbbs"
+spec:
+  type: LoadBalancer
+  ports:
+    - name: "21115"
+      port: 21115
+      targetPort: 21115
+    - name: "21116-tcp"
+      port: 21116
+      targetPort: 21116
+    - name: "21116-udp"
+      port: 21116
+      protocol: UDP
+      targetPort: 21116
+    - name: "21118"
+      port: 21118
+      targetPort: 21118
+  selector:
+    app.kubernetes.io/name: rust-hbbs-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rust-hbbr-service
+  namespace: rustdesk-server
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: "rustdesk-hbbr"
+spec:
+  type: LoadBalancer
+  ports:
+    - name: "21117"
+      port: 21117
+      targetPort: 21117
+    - name: "21119"
+      port: 21119
+      targetPort: 21119
+  selector:
+    app.kubernetes.io/name: rust-hbbr-service
