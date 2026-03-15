@@ -6,6 +6,9 @@ metadata:
   namespace: postgresql
   labels:
     app: postgresql
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: "homelab-postgres"
 spec:
   type: LoadBalancer
   ports:

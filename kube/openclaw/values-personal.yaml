@@ -15,6 +15,8 @@ app-template:
     main:
       annotations:
         metallb.universe.tf/loadBalancerIPs: 192.168.0.204
+        tailscale.com/expose: "true"
+        tailscale.com/hostname: "openclaw-personal"
   configMaps:
     config:
       data:

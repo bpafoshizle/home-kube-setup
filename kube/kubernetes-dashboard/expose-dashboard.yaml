@@ -1,0 +1,23 @@
+# Patch the Kubernetes Dashboard Kong Proxy service to:
+#   1. Use LoadBalancer type so MetalLB assigns a home LAN IP (192.168.0.200-250)
+#   2. Expose it to the Tailscale tailnet via the operator annotation
+#
+# After applying, access via:
+#   Home LAN:  https://<METALLB-IP>:443
+#   Tailnet:   https://kubernetes-dashboard (MagicDNS)
+#
+# Apply with:
+#   kubectl patch svc kubernetes-dashboard-kong-proxy \
+#     -n kubernetes-dashboard \
+#     --type merge \
+#     --patch-file kube/kubernetes-dashboard/expose-dashboard.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubernetes-dashboard-kong-proxy
+  namespace: kubernetes-dashboard
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: "kubernetes-dashboard"
+spec:
+  type: LoadBalancer
