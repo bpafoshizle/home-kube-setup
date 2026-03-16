@@ -35,7 +35,7 @@ app-template:
               log() { echo "[$(date -Iseconds)] [init-setup] $*"; }
 
               log "Starting initialization"
-              mkdir -p /root/.config/opencode /workspace
+              mkdir -p /root/.config/opencode /root/.local/share/opencode /workspace
 
               # ── System packages ──────────────────────────────────────
               # Alpine image lacks git/bash and needs a glibc shim for
@@ -44,7 +44,7 @@ app-template:
               mkdir -p "$APK_CACHE"
               log "Installing system packages (cached at $APK_CACHE)"
               apk add --no-cache --cache-dir "$APK_CACHE" \
-                git bash curl openssh-client
+                gcompat git bash curl openssh-client
               log "Packages installed"
 
               # ── glibc shim ───────────────────────────────────────────
@@ -103,7 +103,7 @@ app-template:
             - |
               APK_CACHE=/root/.config/opencode/apk-cache
               apk add --no-cache --cache-dir "$APK_CACHE" \
-                git bash curl openssh-client 2>/dev/null
+                gcompat git bash curl openssh-client
               exec opencode web --port 4096 --hostname 0.0.0.0 --mdns
           envFrom:
             - secretRef:
@@ -231,11 +231,15 @@ app-template:
           init-setup:
             - path: /root/.config/opencode
               subPath: config
+            - path: /root/.local/share/opencode
+              subPath: share
             - path: /workspace
               subPath: workspace
           main:
             - path: /root/.config/opencode
               subPath: config
+            - path: /root/.local/share/opencode
+              subPath: share
             - path: /workspace
               subPath: workspace
 
