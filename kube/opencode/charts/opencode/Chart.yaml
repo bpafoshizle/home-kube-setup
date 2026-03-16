@@ -1,0 +1,20 @@
+apiVersion: v2
+name: opencode
+description: Helm chart for deploying OpenCode Web on Kubernetes — an AI coding assistant with a browser-based interface.
+type: application
+version: 0.1.0
+appVersion: "latest"
+kubeVersion: ">=1.26.0-0"
+keywords:
+  - ai
+  - coding
+  - opencode
+  - web
+  - kubernetes
+home: https://opencode.ai
+sources:
+  - https://github.com/anomalyco/opencode
+dependencies:
+  - name: app-template
+    version: 4.6.2
+    repository: https://bjw-s-labs.github.io/helm-charts/
