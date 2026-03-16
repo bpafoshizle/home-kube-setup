@@ -1,0 +1,242 @@
+# OpenCode Web Deployment Values
+#
+# IMPORTANT NOTES:
+# - OpenCode runs as a single instance (not horizontally scalable)
+# - Provider API keys are configured at runtime via /connect in the web UI
+# - Auth tokens from /connect persist on the PVC at ~/.config/opencode/
+# - Server is protected by OPENCODE_SERVER_PASSWORD from the env secret
+
+app-template:
+  defaultPodOptions:
+    securityContext:
+      # OpenCode's official image runs as root by default.
+      # We keep it as root inside the container so the agent has full
+      # filesystem access (git, bash tools, etc.) without permission issues.
+      # The container is still isolated by the pod sandbox.
+      runAsUser: 0
+      runAsGroup: 0
+
+  controllers:
+    main:
+      replicas: 1
+      strategy: Recreate
+
+      initContainers:
+        # Install system packages, build glibc shim, seed config, init workspace
+        init-setup:
+          image:
+            repository: ghcr.io/anomalyco/opencode
+            tag: latest
+            pullPolicy: Always
+          command:
+            - sh
+            - -c
+            - |
+              log() { echo "[$(date -Iseconds)] [init-setup] $*"; }
+
+              log "Starting initialization"
+              mkdir -p /root/.config/opencode /workspace
+
+              # ── System packages ──────────────────────────────────────
+              # Alpine image lacks git/bash and needs a glibc shim for
+              # Bun's PTY native library (terminal support in web UI).
+              APK_CACHE=/root/.config/opencode/apk-cache
+              mkdir -p "$APK_CACHE"
+              log "Installing system packages (cached at $APK_CACHE)"
+              apk add --no-cache --cache-dir "$APK_CACHE" \
+                git bash curl openssh-client
+              log "Packages installed"
+
+              # ── glibc shim ───────────────────────────────────────────
+              # Bun extracts a PTY native .so compiled against glibc.
+              # Alpine uses musl, which lacks gnu_get_libc_version().
+              # We compile a tiny shim that provides this symbol and
+              # persist it on the PVC so it only builds once.
+              SHIM=/root/.config/opencode/glibc_shim.so
+              if [ ! -f "$SHIM" ]; then
+                log "Building glibc shim (first time only)"
+                apk add --no-cache gcc musl-dev
+                cat > /tmp/glibc_shim.c << 'SHIMEOF'
+              const char *gnu_get_libc_version(void) { return "2.39"; }
+              SHIMEOF
+                gcc -shared -o "$SHIM" /tmp/glibc_shim.c
+                rm /tmp/glibc_shim.c
+                apk del gcc musl-dev 2>/dev/null || true
+                log "glibc shim compiled at $SHIM"
+              else
+                log "glibc shim already exists"
+              fi
+
+              # ── Config ───────────────────────────────────────────────
+              if [ ! -f /root/.config/opencode/opencode.json ]; then
+                log "First deploy — seeding global config from ConfigMap"
+                cp /helm-config/opencode.json /root/.config/opencode/opencode.json
+              else
+                log "Existing config found — preserving runtime config"
+              fi
+
+              # ── Workspace ────────────────────────────────────────────
+              if [ ! -d /workspace/.git ]; then
+                log "Initializing workspace as git repo"
+                cd /workspace
+                git init -b main
+                git config user.email "opencode@local"
+                git config user.name "OpenCode"
+                echo "# OpenCode Workspace" > README.md
+                git add . && git commit -m "init workspace"
+              else
+                log "Workspace git repo already exists"
+              fi
+
+              log "Initialization complete"
+
+      containers:
+        main:
+          image:
+            repository: ghcr.io/anomalyco/opencode
+            tag: latest
+            pullPolicy: Always
+          # Shell wrapper: re-install packages from PVC cache then exec opencode.
+          command:
+            - sh
+            - -c
+            - |
+              APK_CACHE=/root/.config/opencode/apk-cache
+              apk add --no-cache --cache-dir "$APK_CACHE" \
+                git bash curl openssh-client 2>/dev/null
+              exec opencode web --port 4096 --hostname 0.0.0.0 --mdns
+          envFrom:
+            - secretRef:
+                name: opencode-env-secret
+          env:
+            HOME: /root
+            # glibc shim for Bun's PTY native library on Alpine (musl)
+            LD_PRELOAD: /root/.config/opencode/glibc_shim.so
+            # Point OpenCode to the ConfigMap config as a "custom config"
+            # layer. This sits between global (~/.config/opencode/opencode.json)
+            # and project-level config in the precedence order, so Helm-managed
+            # server/permission settings are always applied while the global
+            # config on the PVC holds auth tokens and user preferences.
+            OPENCODE_CONFIG: /helm-config/opencode.json
+          workingDir: /workspace
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          probes:
+            liveness:
+              enabled: true
+              type: TCP
+              spec:
+                tcpSocket:
+                  port: 4096
+                initialDelaySeconds: 30
+                periodSeconds: 30
+                timeoutSeconds: 5
+                failureThreshold: 3
+            readiness:
+              enabled: true
+              type: TCP
+              spec:
+                tcpSocket:
+                  port: 4096
+                initialDelaySeconds: 10
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 3
+            startup:
+              enabled: true
+              type: TCP
+              spec:
+                tcpSocket:
+                  port: 4096
+                initialDelaySeconds: 5
+                periodSeconds: 5
+                timeoutSeconds: 5
+                failureThreshold: 30
+
+  configMaps:
+    config:
+      enabled: true
+      data:
+        opencode.json: |
+          {
+            "$schema": "https://opencode.ai/config.json",
+            "autoupdate": false,
+            "server": {
+              "port": 4096,
+              "hostname": "0.0.0.0",
+              "mdns": true,
+              "mdnsDomain": "opencode.local"
+            },
+            "permission": {
+              "*": "allow",
+              "doom_loop": "deny",
+              "external_directory": "allow"
+            },
+            "compaction": {
+              "auto": true,
+              "prune": true,
+              "reserved": 10000
+            }
+          }
+
+  service:
+    main:
+      controller: main
+      type: LoadBalancer
+      ipFamilyPolicy: SingleStack
+      ipFamilies:
+        - IPv4
+      annotations:
+        tailscale.com/expose: "true"
+        tailscale.com/hostname: "opencode-web"
+      ports:
+        http:
+          port: 4096
+
+  ingress:
+    main:
+      enabled: false
+
+  persistence:
+    # ConfigMap mounted read-only for Helm-managed config
+    helm-config:
+      enabled: true
+      type: configMap
+      name: opencode
+      advancedMounts:
+        main:
+          init-setup:
+            - path: /helm-config
+              readOnly: true
+          main:
+            - path: /helm-config
+              readOnly: true
+
+    # Main data PVC — holds all persistent state:
+    #   config/  → ~/.config/opencode/ (auth.json, global opencode.json)
+    #   workspace/ → /workspace (git repos, agents, skills, project files)
+    data:
+      enabled: true
+      type: persistentVolumeClaim
+      storageClass: managed-nfs-storage
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      advancedMounts:
+        main:
+          init-setup:
+            - path: /root/.config/opencode
+              subPath: config
+            - path: /workspace
+              subPath: workspace
+          main:
+            - path: /root/.config/opencode
+              subPath: config
+            - path: /workspace
+              subPath: workspace
+
+
