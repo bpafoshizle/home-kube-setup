@@ -36,6 +36,9 @@ app-template:
 
               log "Starting initialization"
               mkdir -p /root/.config/opencode /root/.local/share/opencode /workspace
+              mkdir -p /root/.ssh
+              chmod 700 /root/.ssh
+              mkdir -p /root/.config/gh
 
               # ── System packages ──────────────────────────────────────
               # Alpine image lacks git/bash and needs a glibc shim for
@@ -44,8 +47,8 @@ app-template:
               mkdir -p "$APK_CACHE"
               log "Installing system packages (cached at $APK_CACHE)"
               apk add --no-cache --cache-dir "$APK_CACHE" \
-                gcompat git bash curl openssh-client
-              log "Packages installed"
+                gcompat git bash curl openssh-client github-cli
+              log "Packages installed (including gh CLI)"
 
               # ── glibc shim ───────────────────────────────────────────
               # Bun extracts a PTY native .so compiled against glibc.
@@ -75,13 +78,24 @@ app-template:
                 log "Existing config found — preserving runtime config"
               fi
 
+              # ── Global Git config ────────────────────────────────────
+              # ~/.gitconfig is on a persistent mount, so this only runs
+              # on first deploy. User can change these at runtime and
+              # they will survive pod restarts.
+              if [ ! -f /root/.gitconfig ]; then
+                log "First deploy — seeding global git config"
+                git config --global user.email "opencode@local"
+                git config --global user.name "OpenCode"
+                git config --global init.defaultBranch main
+              else
+                log "Existing global git config found — preserving"
+              fi
+
               # ── Workspace ────────────────────────────────────────────
               if [ ! -d /workspace/.git ]; then
                 log "Initializing workspace as git repo"
                 cd /workspace
                 git init -b main
-                git config user.email "opencode@local"
-                git config user.name "OpenCode"
                 echo "# OpenCode Workspace" > README.md
                 git add . && git commit -m "init workspace"
               else
@@ -103,7 +117,7 @@ app-template:
             - |
               APK_CACHE=/root/.config/opencode/apk-cache
               apk add --no-cache --cache-dir "$APK_CACHE" \
-                gcompat git bash curl openssh-client
+                gcompat git bash curl openssh-client github-cli
               exec opencode web --port 4096 --hostname 0.0.0.0 --mdns
           envFrom:
             - secretRef:
@@ -218,8 +232,12 @@ app-template:
               readOnly: true
 
     # Main data PVC — holds all persistent state:
-    #   config/  → ~/.config/opencode/ (auth.json, global opencode.json)
-    #   workspace/ → /workspace (git repos, agents, skills, project files)
+    #   config/           → ~/.config/opencode/ (auth.json, global opencode.json)
+    #   share/            → ~/.local/share/opencode/ (conversation data)
+    #   workspace/        → /workspace (git repos, agents, skills, project files)
+    #   dotfiles/gitconfig → ~/.gitconfig (global git user.name, user.email, credential helpers)
+    #   dotfiles/ssh/     → ~/.ssh/ (SSH keys, known_hosts)
+    #   dotfiles/gh/      → ~/.config/gh/ (GitHub CLI auth tokens)
     data:
       enabled: true
       type: persistentVolumeClaim
@@ -235,6 +253,12 @@ app-template:
               subPath: share
             - path: /workspace
               subPath: workspace
+            - path: /root/.gitconfig
+              subPath: dotfiles/gitconfig
+            - path: /root/.ssh
+              subPath: dotfiles/ssh
+            - path: /root/.config/gh
+              subPath: dotfiles/gh
           main:
             - path: /root/.config/opencode
               subPath: config
@@ -242,5 +266,9 @@ app-template:
               subPath: share
             - path: /workspace
               subPath: workspace
-
-
+            - path: /root/.gitconfig
+              subPath: dotfiles/gitconfig
+            - path: /root/.ssh
+              subPath: dotfiles/ssh
+            - path: /root/.config/gh
+              subPath: dotfiles/gh
