@@ -79,10 +79,22 @@ app-template:
               fi
 
               # ── Global Git config ────────────────────────────────────
-              # ~/.gitconfig is on a persistent mount, so this only runs
-              # on first deploy. User can change these at runtime and
-              # they will survive pod restarts.
-              if [ ! -f /root/.gitconfig ]; then
+              # The PVC mounts a "dotfiles" directory. We symlink
+              # ~/.gitconfig into it so git config --global writes
+              # persist across pod restarts.
+              DOTFILES=/persistent-dotfiles
+              # Clean up the broken directory mount from the previous deploy
+              if [ -d /root/.gitconfig ] && [ ! -L /root/.gitconfig ]; then
+                log "Removing broken .gitconfig directory from previous mount"
+                rmdir /root/.gitconfig 2>/dev/null || rm -rf /root/.gitconfig
+              fi
+              # Symlink ~/.gitconfig → persistent dotfiles
+              if [ ! -L /root/.gitconfig ]; then
+                ln -sf "$DOTFILES/gitconfig" /root/.gitconfig
+                log "Symlinked ~/.gitconfig → $DOTFILES/gitconfig"
+              fi
+              # Seed defaults on first deploy
+              if [ ! -f "$DOTFILES/gitconfig" ]; then
                 log "First deploy — seeding global git config"
                 git config --global user.email "opencode@local"
                 git config --global user.name "OpenCode"
@@ -118,6 +130,11 @@ app-template:
               APK_CACHE=/root/.config/opencode/apk-cache
               apk add --no-cache --cache-dir "$APK_CACHE" \
                 gcompat git bash curl openssh-client github-cli
+              # Symlink ~/.gitconfig to the persistent dotfiles dir
+              if [ -d /root/.gitconfig ] && [ ! -L /root/.gitconfig ]; then
+                rmdir /root/.gitconfig 2>/dev/null || rm -rf /root/.gitconfig
+              fi
+              [ ! -L /root/.gitconfig ] && ln -sf /persistent-dotfiles/gitconfig /root/.gitconfig
               exec opencode web --port 4096 --hostname 0.0.0.0 --mdns
           envFrom:
             - secretRef:
@@ -235,9 +252,9 @@ app-template:
     #   config/           → ~/.config/opencode/ (auth.json, global opencode.json)
     #   share/            → ~/.local/share/opencode/ (conversation data)
     #   workspace/        → /workspace (git repos, agents, skills, project files)
-    #   dotfiles/gitconfig → ~/.gitconfig (global git user.name, user.email, credential helpers)
-    #   dotfiles/ssh/     → ~/.ssh/ (SSH keys, known_hosts)
-    #   dotfiles/gh/      → ~/.config/gh/ (GitHub CLI auth tokens)
+    #   dotfiles/         → /persistent-dotfiles/ (gitconfig file, symlinked from ~/.gitconfig)
+    #   dotfiles-ssh/     → ~/.ssh/ (SSH keys, known_hosts)
+    #   dotfiles-gh/      → ~/.config/gh/ (GitHub CLI auth tokens)
     data:
       enabled: true
       type: persistentVolumeClaim
@@ -253,12 +270,12 @@ app-template:
               subPath: share
             - path: /workspace
               subPath: workspace
-            - path: /root/.gitconfig
-              subPath: dotfiles/gitconfig
+            - path: /persistent-dotfiles
+              subPath: dotfiles
             - path: /root/.ssh
-              subPath: dotfiles/ssh
+              subPath: dotfiles-ssh
             - path: /root/.config/gh
-              subPath: dotfiles/gh
+              subPath: dotfiles-gh
           main:
             - path: /root/.config/opencode
               subPath: config
@@ -266,9 +283,9 @@ app-template:
               subPath: share
             - path: /workspace
               subPath: workspace
-            - path: /root/.gitconfig
-              subPath: dotfiles/gitconfig
+            - path: /persistent-dotfiles
+              subPath: dotfiles
             - path: /root/.ssh
-              subPath: dotfiles/ssh
+              subPath: dotfiles-ssh
             - path: /root/.config/gh
-              subPath: dotfiles/gh
+              subPath: dotfiles-gh
