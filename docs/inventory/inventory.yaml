@@ -4,55 +4,65 @@
 devices:
   - hostname: bletchley001
     ip: 192.168.0.84
-    mac: ""
+    mac: "DC:A6:32:9E:52:16"
     serial: ""
     os: "Ubuntu Server"
     role: "kube-control-plane"
     location: "home-office"
+    rack_position: 5
+    switch_port: 5
     owner: "Barret"
     notes: ""
     tags: [kube, pi]
     status: "active"
   - hostname: bletchley002
     ip: 192.168.0.83
-    mac: ""
+    mac: "DC:A6:32:98:4D:2A"
     serial: ""
     os: "Ubuntu Server"
     role: "kube-worker"
     location: "home-office"
+    rack_position: 2
+    switch_port: 3
     owner: "Barret"
     notes: ""
     tags: [kube, pi]
     status: "active"
   - hostname: bletchley003
     ip: 192.168.0.82
-    mac: ""
+    mac: "DC:A6:32:94:6A:5F"
     serial: ""
     os: "Ubuntu Server"
     role: "kube-worker"
     location: "home-office"
+    rack_position: 3
+    switch_port: 4
     owner: "Barret"
     notes: ""
     tags: [kube, pi]
     status: "active"
   - hostname: bletchley004
     ip: 192.168.0.81
-    mac: ""
+    mac: "DC:A6:32:94:6B:22"
     serial: ""
     os: "Ubuntu Server"
     role: "kube-worker"
     location: "home-office"
+    rack_position: 1
+    switch_port: 2
     owner: "Barret"
     notes: ""
     tags: [kube, pi]
     status: "active"
   - hostname: bletchley005
     ip: 192.168.0.80
-    mac: ""
+    mac: "DC:A6:32:98:4D:5A"
     serial: ""
     os: "Ubuntu Server"
     role: "kube-worker"
     location: "home-office"
+    rack_position: 4
+    switch_port: 6
     owner: "Barret"
     notes: ""
     tags: [kube, pi]

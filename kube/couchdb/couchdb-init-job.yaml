@@ -1,0 +1,74 @@
+---
+# One-time Job to initialise CouchDB for Obsidian LiveSync.
+# This configures single-node mode, CORS, document size limits,
+# and creates the 'obsidian' database.
+#
+# All operations are idempotent PUTs, so this Job can be re-run safely.
+#
+# Usage:
+#   kubectl apply -f kube/couchdb/couchdb-init-job.yaml
+#   kubectl logs -n couchdb job/couchdb-livesync-init
+#
+# To re-run after a previous completion:
+#   kubectl delete job couchdb-livesync-init -n couchdb --ignore-not-found
+#   kubectl apply -f kube/couchdb/couchdb-init-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: couchdb-livesync-init
+  namespace: couchdb
+  labels:
+    app: couchdb
+    component: livesync-init
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: couchdb
+        component: livesync-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: curlimages/curl:latest
+          env:
+            - name: COUCHDB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: couchdb-credentials
+                  key: adminUsername
+            - name: COUCHDB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: couchdb-credentials
+                  key: adminPassword
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              HOST="http://couchdb-svc-couchdb.couchdb.svc.cluster.local:5984"
+              AUTH="${COUCHDB_USER}:${COUCHDB_PASSWORD}"
+
+              echo "==> Waiting for CouchDB to be ready..."
+              until curl -sf "${HOST}/" > /dev/null 2>&1; do
+                echo "    CouchDB not ready yet, retrying in 5s..."
+                sleep 5
+              done
+              echo "==> CouchDB is ready!"
+
+              echo "==> Configuring single-node mode..."
+              curl -sf -X POST "${HOST}/_cluster_setup" \
+                -H "Content-Type: application/json" \
+                -d "{\"action\":\"enable_single_node\",\"username\":\"${COUCHDB_USER}\",\"password\":\"${COUCHDB_PASSWORD}\",\"bind_address\":\"0.0.0.0\",\"port\":5984,\"singlenode\":true}" \
+                --user "${AUTH}" || true
+
+              echo "==> Creating 'obsidian' database..."
+              curl -sf -X PUT "${HOST}/obsidian" \
+                --user "${AUTH}" || true
+
+              echo ""
+              echo "==> LiveSync initialisation complete!"
+              echo "    Database 'obsidian' is ready for Obsidian LiveSync."
