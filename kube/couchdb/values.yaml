@@ -1,0 +1,104 @@
+# CouchDB Helm Chart Values — Self-hosted Obsidian LiveSync
+# Chart: https://github.com/apache/couchdb-helm
+#
+# Single-node CouchDB for personal Obsidian vault sync.
+# Exposed to the tailnet via the Tailscale Kubernetes Operator.
+
+# -- Single node is sufficient for personal use
+clusterSize: 1
+
+# -- We manage the admin secret ourselves (couchdb-credentials)
+createAdminSecret: false
+adminUsername: admin
+
+# -- Reference our pre-created secret
+extraSecretName: "couchdb-credentials"
+adminUsernameKey: "adminUsername"
+adminPasswordKey: "adminPassword"
+cookieAuthSecretKey: "cookieAuthSecret"
+erlangCookieKey: "erlangCookie"
+
+# -- CouchDB image
+image:
+  repository: couchdb
+  tag: 3.5.1
+  pullPolicy: IfNotPresent
+
+# -- Persistent storage on Synology NAS via NFS
+persistentVolume:
+  enabled: true
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+  storageClass: "managed-nfs-storage"
+
+# -- CouchDB configuration for LiveSync compatibility
+# Ref: https://github.com/vrtmrz/obsidian-livesync/blob/main/docs/setup_own_server.md
+couchdbConfig:
+  couchdb:
+    uuid: "e60a869b87f54dda8a655004eea6b124"  # Unique CouchDB instance ID (required by Helm chart)
+    max_document_size: "50000000"    # 50MB — LiveSync requirement for large attachments
+  chttpd:
+    bind_address: any
+    require_valid_user: "true"       # No anonymous access
+    max_http_request_size: "4294967296"  # 4GB — LiveSync requirement
+    enable_cors: "true"
+  httpd:
+    WWW-Authenticate: 'Basic realm="couchdb"'
+    enable_cors: "true"
+  cors:
+    credentials: "true"
+    origins: "app://obsidian.md,capacitor://localhost,http://localhost"
+
+# -- Erlang flags
+erlangFlags:
+  name: couchdb
+
+# -- Service: exposed as LoadBalancer for Tailscale operator pickup
+service:
+  enabled: true
+  type: LoadBalancer
+  externalPort: 5984
+  targetPort: 5984
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: "homelab-couchdb"
+
+# -- Disable network policy (Tailscale handles network isolation)
+networkPolicy:
+  enabled: false
+
+# -- Resource limits appropriate for Raspberry Pi 4
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# -- Probes
+livenessProbe:
+  enabled: true
+  failureThreshold: 3
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 5
+readinessProbe:
+  enabled: true
+  failureThreshold: 3
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 5
+
+# -- Auto setup (creates system databases on first run)
+autoSetup:
+  enabled: true
+  image:
+    repository: curlimages/curl
+    tag: latest
+    pullPolicy: Always
+  defaultDatabases:
+    - _global_changes
