@@ -1,0 +1,29 @@
+---
+# Tailscale Managed Ingress for CouchDB HTTPS
+# Automatically provisions a Let's Encrypt certificate and MagicDNS hostname.
+# URL: https://homelab-couchdb.tail55ae3f.ts.net
+#
+# Prerequisite: "HTTPS Certificates" enabled in Tailscale Admin Console.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: couchdb-ingress
+  namespace: couchdb
+  annotations:
+    tailscale.com/hostname: homelab-couchdb
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - homelab-couchdb.tail55ae3f.ts.net
+  rules:
+    - host: homelab-couchdb.tail55ae3f.ts.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: couchdb-svc-couchdb
+                port:
+                  number: 5984
