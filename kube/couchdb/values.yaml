@@ -62,7 +62,7 @@ service:
   targetPort: 5984
   annotations:
     tailscale.com/expose: "true"
-    tailscale.com/hostname: "homelab-couchdb"
+    # tailscale.com/hostname: "homelab-couchdb"  # Moved to Ingress for HTTPS support
 
 # -- Disable network policy (Tailscale handles network isolation)
 networkPolicy:

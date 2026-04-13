@@ -9,7 +9,7 @@ graph LR
     subgraph "Home Kubernetes Cluster"
         CDB["CouchDB 3.5<br/>(Helm Chart, single-node)"]
         NFS["Synology NAS<br/>(managed-nfs-storage)"]
-        TS["Tailscale Operator<br/>(homelab-couchdb)"]
+        TS["Tailscale Ingress<br/>(homelab-couchdb)"]
     end
 
     subgraph "Devices on Tailnet"
@@ -19,16 +19,16 @@ graph LR
     end
 
     CDB -->|"PVC"| NFS
-    CDB -->|"LoadBalancer<br/>port 5984"| TS
-    TS -.->|"http://homelab-couchdb:5984"| MAC
-    TS -.->|"http://homelab-couchdb:5984"| PHONE
+    CDB -->|"Service"| TS
+    TS -.->|"https://homelab-couchdb.tail55ae3f.ts.net"| MAC
+    TS -.->|"https://homelab-couchdb.tail55ae3f.ts.net"| PHONE
     AGENT -->|"direct file access"| MAC
 ```
 
 **Key components:**
 - **CouchDB** — The sync backend. Deployed via the [official Apache Helm chart](https://github.com/apache/couchdb-helm) as a single-node instance.
 - **Obsidian LiveSync plugin** — Installed in Obsidian on each device. Handles real-time bidirectional sync with CouchDB.
-- **Tailscale** — All devices access CouchDB via the tailnet hostname `homelab-couchdb`. No public internet exposure.
+- **Tailscale Ingress** — Automatically provisions a Let's Encrypt certificate and MagicDNS name for secure HTTPS access.
 - **NFS on Synology** — Persistent storage for CouchDB data.
 
 ## Deployment
@@ -63,12 +63,17 @@ envsubst < kube/couchdb/couchdb-secret.yaml | kubectl apply -f -
 bash kube/couchdb/helm-deploy.sh
 ```
 
-This will:
-1. Add the `couchdb` Helm repo
-2. Install/upgrade the CouchDB chart with LiveSync-compatible configuration
-3. Expose the service as `homelab-couchdb` on the tailnet
+This will deploy CouchDB and expose it as a `LoadBalancer` service on the tailnet.
 
-### Step 4: Initialise for LiveSync
+### Step 4: Enable HTTPS via Tailscale Ingress
+
+```bash
+kubectl apply -f kube/couchdb/couchdb-ingress.yaml
+```
+
+The Tailscale operator will provision a certificate and a MagicDNS name (`homelab-couchdb.tail55ae3f.ts.net`).
+
+### Step 5: Initialise for LiveSync
 
 Wait for the CouchDB pod to be ready, then run the init Job:
 
@@ -80,21 +85,21 @@ kubectl logs -n couchdb job/couchdb-livesync-init -f
 
 This configures single-node mode and creates the `obsidian` database.
 
-### Step 5: Verify
+### Step 6: Verify
 
 ```bash
 # Check pod status
 kubectl get pods -n couchdb
 
-# Check service (should have a Tailscale external IP)
-kubectl get svc -n couchdb
+# Check Ingress (should have the tail55ae3f.ts.net address)
+kubectl get ingress -n couchdb
 
-# Test from a tailnet device
-curl http://homelab-couchdb:5984/
+# Test HTTPS from a tailnet device
+curl https://homelab-couchdb.tail55ae3f.ts.net/
 # Should return: {"couchdb":"Welcome", ...}
 
-# Verify the database exists
-curl http://homelab-couchdb:5984/obsidian -u admin:your-password
+# Verify database access via HTTPS
+curl https://homelab-couchdb.tail55ae3f.ts.net/obsidian -u admin:your-password
 ```
 
 ## Client Setup (Obsidian LiveSync)
@@ -107,7 +112,7 @@ curl http://homelab-couchdb:5984/obsidian -u admin:your-password
 4. Go to **Settings → Self-hosted LiveSync → Setup → Minimal setup**
 5. Configure the connection:
    - **Remote Type**: CouchDB
-   - **Server URI**: `http://homelab-couchdb:5984`
+   - **Server URI**: `https://homelab-couchdb.tail55ae3f.ts.net`
    - **Username**: your CouchDB admin username
    - **Password**: your CouchDB admin password
    - **Database name**: `obsidian`
@@ -131,8 +136,8 @@ curl http://homelab-couchdb:5984/obsidian -u admin:your-password
 
 ### Mobile Notes
 
-- For **iOS/Android**, the same process applies — install Obsidian from the app store, enable LiveSync, and use the Setup URI
-- Mobile Obsidian may require HTTPS. If sync fails on mobile, you may need to enable [Tailscale HTTPS](https://tailscale.com/kb/1153/enabling-https) for MagicDNS
+- For **iOS/Android**, the same process applies. Install Obsidian from the app store, enable LiveSync, and use the Setup URI.
+- Since we have enabled **Tailscale HTTPS**, the `https://` URL will work seamlessly on mobile. Ensure the mobile device is connected to the Tailnet.
 
 ## LLM Wiki Pattern (Karpathy)
 
@@ -167,9 +172,9 @@ kubectl logs -n couchdb job/couchdb-livesync-init -f
 ```
 
 ### LiveSync connection failing
-1. Verify CouchDB is accessible: `curl http://homelab-couchdb:5984/`
-2. Check CORS origins: `curl http://homelab-couchdb:5984/_node/_local/_config/cors/origins -u admin:password`
-3. Verify database exists: `curl http://homelab-couchdb:5984/obsidian -u admin:password`
+1. Verify CouchDB is accessible: `curl https://homelab-couchdb.tail55ae3f.ts.net/`
+2. Check CORS origins: `curl https://homelab-couchdb.tail55ae3f.ts.net/_node/_local/_config/cors/origins -u admin:password`
+3. Verify database exists: `curl https://homelab-couchdb.tail55ae3f.ts.net/obsidian -u admin:password`
 4. Use the **"Check and Fix"** button in LiveSync settings to auto-repair configuration issues
 
 ### Upgrading CouchDB
@@ -187,3 +192,4 @@ bash kube/couchdb/helm-deploy.sh
 | `kube/couchdb/values.yaml` | Helm chart values (LiveSync config) |
 | `kube/couchdb/helm-deploy.sh` | Helm install/upgrade script |
 | `kube/couchdb/couchdb-init-job.yaml` | One-time LiveSync initialisation job |
+| `kube/couchdb/couchdb-ingress.yaml` | Tailscale Managed Ingress (HTTPS) |

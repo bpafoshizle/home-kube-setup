@@ -53,8 +53,8 @@ spec:
               AUTH="${COUCHDB_USER}:${COUCHDB_PASSWORD}"
 
               echo "==> Waiting for CouchDB to be ready..."
-              until curl -sf "${HOST}/" > /dev/null 2>&1; do
-                echo "    CouchDB not ready yet, retrying in 5s..."
+              until curl -sf --user "${AUTH}" "${HOST}/" > /dev/null 2>&1; do
+                echo "    CouchDB not ready yet (or auth failed), retrying in 5s..."
                 sleep 5
               done
               echo "==> CouchDB is ready!"
@@ -63,12 +63,18 @@ spec:
               curl -sf -X POST "${HOST}/_cluster_setup" \
                 -H "Content-Type: application/json" \
                 -d "{\"action\":\"enable_single_node\",\"username\":\"${COUCHDB_USER}\",\"password\":\"${COUCHDB_PASSWORD}\",\"bind_address\":\"0.0.0.0\",\"port\":5984,\"singlenode\":true}" \
-                --user "${AUTH}" || true
+                --user "${AUTH}" || echo "    Single-node mode already configured or failed (ignoring)"
+
+              echo "==> Creating system databases..."
+              for db in _users _replicator _global_changes; do
+                echo "    Creating ${db}..."
+                curl -sf -X PUT "${HOST}/${db}" --user "${AUTH}" || echo "    ${db} already exists or failed to create"
+              done
 
               echo "==> Creating 'obsidian' database..."
               curl -sf -X PUT "${HOST}/obsidian" \
-                --user "${AUTH}" || true
+                --user "${AUTH}" || echo "    'obsidian' database already exists"
 
               echo ""
               echo "==> LiveSync initialisation complete!"
-              echo "    Database 'obsidian' is ready for Obsidian LiveSync."
+              echo "    Databases are ready for Obsidian LiveSync."
