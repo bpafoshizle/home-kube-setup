@@ -30,6 +30,9 @@ spec:
           env:
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
+          args:
+            - -c
+            - config_file=/etc/postgresql/postgresql.conf
           resources:
             requests:
               memory: "512Mi"
@@ -40,6 +43,9 @@ spec:
           volumeMounts:
             - name: postgresql-data
               mountPath: /var/lib/postgresql/data
+            - name: postgresql-config
+              mountPath: /etc/postgresql/postgresql.conf
+              subPath: postgresql.conf
           livenessProbe:
             exec:
               command:
@@ -64,3 +70,6 @@ spec:
         - name: postgresql-data
           persistentVolumeClaim:
             claimName: postgresql-data
+        - name: postgresql-config
+          configMap:
+            name: postgresql-config
