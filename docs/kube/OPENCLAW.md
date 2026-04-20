@@ -7,9 +7,9 @@ This document covers the deployment and operation of two OpenClaw instances on t
 | Instance | Name | Namespace | Default Model | Web UI |
 | :--- | :--- | :--- | :--- | :--- |
 | Personal | Neumann | `openclaw` | `xai/grok-4-1-fast-reasoning` | `http://192.168.0.204:18789` |
-| Work | Anton | `openclaw-citepulse` | `ollama/glm-5:cloud` | `http://192.168.0.205:18789` |
+| Work | Anton | `openclaw-citepulse` | `ollama/glm-5.1:cloud` | `http://192.168.0.205:18789` |
 
-Both instances have Anthropic, OpenAI, xAI, and Ollama Cloud models available, including `ollama/gpt-oss:120b`, `ollama/minimax-m2.5:cloud`, and `ollama/glm-5:cloud`. Ollama Cloud is configured through its OpenAI-compatible endpoint, and the "primary" model is the default; other models can be selected per-agent or at runtime in the web UI.
+Both instances have Anthropic, OpenAI, xAI, and Ollama Cloud models available, including `ollama/gpt-oss:120b`, `ollama/minimax-m2.5:cloud`, and `ollama/glm-5.1:cloud`. Ollama Cloud is configured through its OpenAI-compatible endpoint, and the "primary" model is the default; other models can be selected per-agent or at runtime in the web UI.
 
 ---
 
