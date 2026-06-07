@@ -91,9 +91,14 @@ app-template:
               # Add brew to path for this session
               eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
-              if ! command -v gogcli >/dev/null; then
-                log "Installing gogcli..."
-                brew install gogcli
+              if ! command -v gog >/dev/null; then
+                log "Installing gogcli formula..."
+                brew install openclaw/tap/gogcli
+              fi
+
+              if [ -x /home/linuxbrew/.linuxbrew/bin/gog ] && [ ! -e /home/linuxbrew/.linuxbrew/bin/gogcli ]; then
+                log "Creating gogcli compatibility symlink"
+                ln -sf /home/linuxbrew/.linuxbrew/bin/gog /home/linuxbrew/.linuxbrew/bin/gogcli
               fi
 
               # Original skill installation logic
