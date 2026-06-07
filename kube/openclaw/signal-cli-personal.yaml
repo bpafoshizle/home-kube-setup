@@ -50,7 +50,6 @@ spec:
                 signal-cli --config /home/.local/share/signal-cli daemon \
                 --http 0.0.0.0:8080 \
                 --receive-mode on-start \
-                --ignore-attachments \
                 --ignore-stories \
                 --ignore-avatars \
                 --ignore-stickers
