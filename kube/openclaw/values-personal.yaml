@@ -155,6 +155,19 @@ app-template:
               }
             },
 
+            "channels": {
+              "signal": {
+                "enabled": true,
+                "account": "+15012381898",
+                "httpUrl": "http://signal-cli:8080",
+                "dmPolicy": "pairing",
+                "allowFrom": [
+                  "+15018045438",
+                  "+14795310566"
+                ]
+              }
+            },
+
             "logging": {
               "level": "info",
               "consoleLevel": "info",

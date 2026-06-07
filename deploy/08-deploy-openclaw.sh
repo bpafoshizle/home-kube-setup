@@ -72,6 +72,11 @@ OPENCLAW_NAMESPACE=openclaw-citepulse \
 	OPENCLAW_MODELS_ALLOW="$OPENCLAW_MODELS_ALLOW" \
 	envsubst <"$KUBE_DIR/openclaw-secret.yaml" | kubectl apply -f -
 
+# Deploy personal Signal container resources
+echo ""
+echo "--- Applying personal Signal container resources ---"
+kubectl apply -f "$KUBE_DIR/signal-cli-personal.yaml"
+
 # Update Helm chart dependencies
 echo ""
 echo "--- Updating Helm chart dependencies ---"
@@ -98,6 +103,8 @@ echo ""
 echo "=== Waiting for pods to be ready ==="
 echo "Waiting for openclaw..."
 kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=openclaw -n openclaw --timeout=180s || true
+echo "Waiting for signal-cli..."
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=signal-cli -n openclaw --timeout=180s || true
 echo "Waiting for openclaw-citepulse..."
 kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=openclaw-citepulse -n openclaw-citepulse --timeout=180s || true
 
