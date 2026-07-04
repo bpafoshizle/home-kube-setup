@@ -152,3 +152,63 @@ Update system packages:
 ```bash
 ansible-playbook -i ./ansible/inventory/hosts ./ansible/99-update.yml
 ```
+
+---
+
+## SD Card Failure & Recovery
+
+As cluster nodes age, SD cards (especially on high-write control plane nodes) are prone to wear out. Below is a guide on diagnosing card failures and the recovery/cloning procedure.
+
+### Symptoms of SD Card Failure
+
+1. **Read-Only Lockout (RAM execution):**
+   * **Symptoms:** Node is pingable, but SSH returns `Connection refused` or `Connection reset by peer`. Local pods crash with `SIGBUS` (exit code 135) when trying to write to databases or memory-mapped files (like SQLite WAL files).
+   * **Cause:** The SD card's internal flash controller has permanently locked itself into read-only mode to prevent data loss.
+
+2. **Boot Failure (Stuck on Rainbow Screen):**
+   * **Symptoms:** Connecting a monitor to the Pi shows a static rainbow screen (GPU test card) and absolutely no console output.
+   * **Cause:** The bootloader cannot read `bootcode.bin` or `start4.elf` from the boot partition because the card is either physically dead or corrupted.
+
+### Diagnostics on macOS
+
+Insert the SD card into your MacBook and run:
+```bash
+diskutil list       # Find the disk identifier (e.g., disk4)
+diskutil info disk4s2
+```
+Look for the `Media Read-Only` flag:
+* If it says **`Media Read-Only: Yes`**, check the physical plastic sliding switch on the side of the SD card adapter. Ensure it is pushed up (away from the word "LOCK").
+* If it is physically unlocked but still reports `Yes`, the card's flash controller has reached its write-cycle limit and failed into read-only mode.
+
+### Recovery Procedure: Cloning to a New Card
+
+If the card is read-only but still readable, you can clone its exact state onto a new (possibly larger) SD card, preserving all configuration, certificates, ssh keys, and the `etcd` cluster database.
+
+#### 1. Clone the Old Card to a Disk Image
+With the old card plugged into your Mac (assuming it is `disk4`):
+```bash
+diskutil unmountDisk disk4
+sudo dd if=/dev/rdisk4 of=~/rpi-node-backup.img bs=4M status=progress
+```
+
+#### 2. Flash to the New Card
+Insert your new SD card (assuming it is detected as `diskX`):
+```bash
+diskutil unmountDisk diskX
+sudo dd if=~/rpi-node-backup.img of=/dev/rdiskX bs=4M status=progress
+```
+
+#### 3. Online Partition & Filesystem Extension (on the Pi)
+After writing the image, insert the new card into the Pi and power it on. The Pi's Linux kernel will automatically replay the dirty filesystem journal and boot up. 
+
+> [!NOTE]
+> Ubuntu Server on Raspberry Pi typically auto-grows the partition and filesystem to fill the disk on the first boot. Run `df -h` to verify. If it has already expanded, no further action is needed.
+
+If it did not auto-expand, you can manually expand the partition and filesystem online once you SSH into the Pi:
+```bash
+# Grow the partition boundary
+sudo growpart /dev/mmcblk0 2
+
+# Resize the ext4 filesystem to fill the grown partition
+sudo resize2fs /dev/mmcblk0p2
+```
