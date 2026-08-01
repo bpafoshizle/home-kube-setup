@@ -170,10 +170,47 @@ kubectl logs -n openclaw deployment/openclaw -c init-skills
 kubectl logs -n openclaw deployment/openclaw -c chromium
 ```
 
-### Config validation errors
+### Config validation errors & Corrupted Config Playbook
 
-If OpenClaw rejects the config (e.g., unrecognized keys), temporarily switch `CONFIG_MODE` to `overwrite` in `values-common.yaml`, redeploy, then switch back to `merge`.
+If OpenClaw enters a `CrashLoopBackOff` loop with exit code 78 (`Gateway start blocked: existing config is missing gateway.mode`) or syntax errors:
+
+1. **Automatic Error Handling**:
+   The `init-config` init container automatically wraps `JSON.parse` in a `try...catch` block. If `openclaw.json` is unparseable JSON (e.g. non-JSON text accidentally written into the file), `init-config` logs a warning and resets `openclaw.json` with the base Helm config so the gateway can boot up safely.
+
+2. **Restoring Runtime Channel Configs from `last-good` Backup**:
+   When `init-config` resets a corrupted file, runtime settings (such as Discord bot tokens, channel allowlists, and Slack tokens) may be missing from the base Helm config. OpenClaw automatically maintains snapshot backups on the PVC.
+
+   To merge the last known good configuration back into `openclaw.json`:
+
+   ```bash
+   # For Anton (work instance in openclaw-citepulse):
+   kubectl exec -n openclaw-citepulse deployment/openclaw-citepulse -c main -- node -e "
+   const fs = require('fs');
+   const current = JSON.parse(fs.readFileSync('/home/node/.openclaw/openclaw.json', 'utf8'));
+   const lastGood = JSON.parse(fs.readFileSync('/home/node/.openclaw/openclaw.json.last-good', 'utf8'));
+   const deepMerge = (target, source) => {
+     for (const key of Object.keys(source)) {
+       if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+         target[key] = target[key] || {};
+         deepMerge(target[key], source[key]);
+       } else if (target[key] === undefined) {
+         target[key] = source[key];
+       }
+     }
+     return target;
+   };
+   deepMerge(current, lastGood);
+   fs.writeFileSync('/home/node/.openclaw/openclaw.json', JSON.stringify(current, null, 2));
+   console.log('Merged openclaw.json.last-good successfully');
+   "
+   ```
+
+   *(For Neumann, replace `-n openclaw-citepulse deployment/openclaw-citepulse` with `-n openclaw deployment/openclaw`.)*
+
+3. **Force Config Overwrite Mode**:
+   If you need to wipe PVC config completely and start clean from Helm values, temporarily set `CONFIG_MODE: "overwrite"` in `kube/openclaw/values-common.yaml`, redeploy, then switch back to `"merge"`.
 
 ### Image pull taking a long time
 
 Expected on Raspberry Pi nodes. The OpenClaw image and Chromium sidecar are pulled from public registries. First deploy can take several minutes.
+
