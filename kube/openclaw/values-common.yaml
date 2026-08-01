@@ -36,7 +36,12 @@ app-template:
                 log "Mode: merge - merging Helm config with existing config"
                 node -e "
                   const fs = require('fs');
-                  const existing = JSON.parse(fs.readFileSync('/home/node/.openclaw/openclaw.json', 'utf8'));
+                  let existing = {};
+                  try {
+                    existing = JSON.parse(fs.readFileSync('/home/node/.openclaw/openclaw.json', 'utf8'));
+                  } catch (e) {
+                    console.error('[init-config] Warning: Failed to parse existing openclaw.json, resetting to Helm config:', e.message);
+                  }
                   const helm = JSON.parse(fs.readFileSync('/config/openclaw.json', 'utf8'));
                   const deepMerge = (target, source) => {
                     for (const key of Object.keys(source)) {
