@@ -2,6 +2,8 @@
 
 Read-only evidence for [Verify NAS-backed persistence and application storage requirements](https://github.com/bpafoshizle/home-kube-setup/issues/75), within [Headless Obsidian vault service — execution Wayfinder](https://github.com/bpafoshizle/home-kube-setup/issues/67). Collected 2026-10-11. **Cluster, NAS and node prerequisite evidence collected; exact driver compatibility and remaining operational requirements still need evaluation. No backend selected or provisioned.**
 
+**2026-10-18 consolidation:** the [basic-YAML source/artifact audit](OBSIDIAN_NAS_COMPATIBILITY_AUDIT.md) and [decision handoff](OBSIDIAN_NAS_PERSISTENCE_HANDOFF.md) now complete the read-only evidence package. Exact runtime compatibility, effective new-LUN settings, hardware flush protection and pilot/recovery acceptance remain unproven. The chronology below preserves prior observations and explicit later corrections.
+
 Application-specific findings and primary citations: [Pinned application requirements](OBSIDIAN_NAS_APPLICATION_REQUIREMENTS.md).
 
 Block release evidence: [NAS-backed block requirements](OBSIDIAN_NAS_BLOCK_REQUIREMENTS.md). Detailed flush/authentication/attachment findings: [Driver caveat review](OBSIDIAN_NAS_DRIVER_CAVEATS.md).
@@ -128,4 +130,4 @@ Evidence checklist (items 1–4 now have the observations above, with effective 
 - Validate watcher behavior, API-only writes, sync round trips, offline deletions/conflicts, and Cortex operations on a disposable vault.
 - Demonstrate independent, consistent backup/restore including OAuth revocation/refresh state; document acknowledged-write loss boundaries. A synchronized copy is not a backup.
 
-This ticket remains open until the accessible inventory and conditional NAS-block evidence are recorded, or the human explicitly changes its completion scope. No pilot runtime gate has passed, and no deployment or live-vault cutover is authorized by these notes.
+Accessible inventory, conditional NAS-block source/artifact evidence and genuine remaining unknowns are now recorded in this package. This completes read-only investigation scope, not a backend decision or pilot validation. No pilot runtime gate has passed, and no deployment or live-vault cutover is authorized by these notes.

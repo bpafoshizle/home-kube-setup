@@ -2,7 +2,7 @@
 
 Prepared 2026-10-18 for [Verify NAS-backed persistence and application storage requirements](https://github.com/bpafoshizle/home-kube-setup/issues/75). The next human decision is [Choose persistent state storage and the manual recovery contract](https://github.com/bpafoshizle/home-kube-setup/issues/70). **This is evidence and acceptance criteria, not backend selection or provisioning authorization.**
 
-The companion notes preserve the chronology and boundaries of earlier investigations. Their historical statements about uncommitted/unpublished assets or no tracker writes describe those investigations, not this later publication/handoff. The complete-bundle compatibility audit is still pending at this handoff's initial publication; do not interpret the candidate comparison below as a completed compatibility certification.
+The companion notes preserve the chronology and boundaries of earlier investigations. Their historical statements about uncommitted/unpublished assets or no tracker writes describe those investigations, not this later publication/handoff. The [release-matched source/artifact audit](OBSIDIAN_NAS_COMPATIBILITY_AUDIT.md) is complete; **runtime compatibility is not certified**.
 
 ## Settled boundary
 
@@ -41,6 +41,12 @@ Detailed provenance, chronology and non-secret observations: [storage evidence](
 | Durability | Explicit enableFuaSyncCache=true is implemented for new-LUN creation; effective NAS settings and end-to-end behavior still require validation. | Explicit NAS-side flush/cache choices must be established when provisioning is separately authorized. No attributes have been read back from a real LUN. |
 
 Version-specific source citations and caveats: [block requirements](OBSIDIAN_NAS_BLOCK_REQUIREMENTS.md), [driver caveats](OBSIDIAN_NAS_DRIVER_CAVEATS.md). No global Kubernetes context, active GitHub account, networking, node services or NAS resources need changing to finish this research.
+
+### Completed source/artifact audit
+
+The [compatibility audit](OBSIDIAN_NAS_COMPATIBILITY_AUDIT.md) records exact Linux ARM64 child digests for the v1.3.1 driver and all four basic-YAML sidecars. Stable manifest API versions and basic RBAC/flags were reviewed; no complete-bundle runtime support on this exact cluster was established. The optional old provisioner capacity-publishing path uses a removed beta API and is incompatible with Kubernetes 1.33.6; it is **disabled in the supplied basic YAML**, so this does not prove that the basic bundle fails. Helm at the same source commit uses different sidecars and is not covered by this basic-YAML audit. The checked official v1.4.0 image tag remains unavailable.
+
+This finishes the read-only source/artifact comparison, not deployment qualification. Static iSCSI is a lower-integration-complexity candidate, not a chosen or validated backend. Exact runtime, security approval, hardware flush behavior and failure/recovery tests belong to the later approved design/pilot, not retroactive claims about this investigation.
 
 ## Decisions for the human storage contract
 

@@ -4,6 +4,8 @@ Primary-source research for [Verify NAS-backed persistence and application stora
 
 ## Outcome and evidence boundary
 
+**2026-10-18 follow-up:** [Complete basic-YAML source/artifact audit](OBSIDIAN_NAS_COMPATIBILITY_AUDIT.md) now records all core sidecar ARM64 digests, stable manifest/API/RBAC/flag review and a specifically incompatible optional capacity-publishing beta API (disabled in the supplied YAML). It does not establish complete-bundle runtime compatibility. Earlier missing-artifact/audit statements below describe the initial investigation; use the follow-up for current evidence. [Decision handoff](OBSIDIAN_NAS_PERSISTENCE_HANDOFF.md) consolidates choices and remaining gates, including the latest confirmed cache/USB UPS evidence.
+
 An official **Synology CSI v1.3.1 Linux ARM64 image exists**, with an exact artifact identity below. Its own README claims Kubernetes **1.20+** and DSM **7.0+**. That places Kubernetes 1.33.6 and DSM 7.3.2 within the published version ranges, **not within a demonstrated test matrix for this cluster/NAS**. The newer v1.4.0 GitHub release exists, but its Docker Hub image tag returns 404. Do not deploy current-main manifests against a different image or treat an advertised version as a published artifact. [Release][release-131], [README][readme-131], [registry v1.3.1][registry-131], [registry v1.4.0][registry-140].
 
 Static in-tree iSCSI remains present and documented in Kubernetes **1.33**; it is not marked deprecated in that version's storage documentation. It is a manually managed alternative requiring an existing NAS LUN/target, not an installed provisioner or an automatic escape from fencing/backup requirements. [Kubernetes 1.33 docs][k8s-volumes], [v1.33.6 implementation][k8s-iscsi].
