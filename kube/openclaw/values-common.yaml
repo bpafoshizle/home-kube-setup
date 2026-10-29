@@ -68,8 +68,14 @@ app-template:
                   if (helm.agents?.defaults?.model) {
                     merged.agents.defaults.model = helm.agents.defaults.model;
                   }
-                  if (merged.plugins?.entries) {
-                    merged.plugins.entries.google = { enabled: true };
+                  merged.plugins = merged.plugins || {};
+                  merged.plugins.entries = merged.plugins.entries || {};
+                  if (helm.plugins?.entries) {
+                    Object.assign(merged.plugins.entries, helm.plugins.entries);
+                  }
+                  merged.plugins.entries.google = { enabled: true };
+                  if (merged.channels?.signal?.enabled) {
+                    merged.plugins.entries.signal = { enabled: true };
                   }
                   delete merged.gateway?.controlUi?.allowInsecureAuth;
                   delete merged.logging?.redactSensitive;
@@ -158,19 +164,12 @@ app-template:
                   }
                 }
               "
+              rm -f /home/node/.openclaw/tmp/openclaw-0/*.lock /home/node/.openclaw/tmp/openclaw-1000/*.lock
               rm -f /home/node/.openclaw/identity/device.json*
               rm -f /home/node/.openclaw/devices/paired.json* /home/node/.openclaw/devices/pending.json*
               rm -f /home/node/.openclaw/exec-approvals.json*
               rm -f /home/node/.openclaw/sessions /home/node/.openclaw/sessions.*.tmp
-              export HOME=/home/node
-              if [ -d "/home/node/.openclaw/npm" ]; then
-                log "Updating plugins in ~/.openclaw/npm..."
-                HOME=/home/node openclaw plugins update --all --accept-capabilities --acknowledge-install-policy-warning 2>/dev/null || true
-              fi
-              log "Running openclaw doctor --fix..."
-              HOME=/home/node openclaw doctor --fix --yes --non-interactive 2>/dev/null || true
-              chown -R 1000:1000 /home/node/.openclaw /home/node/.config /home/linuxbrew
-              chown -R 0:0 /home/node/.openclaw/npm 2>/dev/null || true
+              chown -R 1000:1000 /home/node/.openclaw /home/node/.config
               log "Config initialization complete"
 
         init-skills:
