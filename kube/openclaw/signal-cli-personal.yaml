@@ -39,7 +39,7 @@ spec:
     spec:
       containers:
         - name: signal-cli
-          image: bbernhard/signal-cli-rest-api:0.99
+          image: bbernhard/signal-cli-rest-api:0.100
           imagePullPolicy: IfNotPresent
           command:
             - sh

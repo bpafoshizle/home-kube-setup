@@ -7,7 +7,17 @@ app-template:
       containers:
         main:
           env:
-            OPENCLAW_MODELS_ALLOW: "anthropic/claude-sonnet-4-5,anthropic/claude-haiku-4-5,openai/gpt-5-mini,xai/grok-4-1-fast-reasoning,xai/grok-4-1-fast,ollama/gpt-oss:120b,ollama/minimax-m2.5:cloud,ollama/glm-5.3-flash:cloud"
+            OPENCLAW_MODELS_ALLOW: "anthropic/claude-sonnet-5-5,anthropic/claude-haiku-5-5,anthropic/claude-sonnet-4-5,anthropic/claude-haiku-4-5,openai/gpt-6.1-terra,openai/gpt-6-luna,openai/gpt-5.4-mini,openai/gpt-5-mini,xai/grok-4.7,xai/grok-4-1-fast,google/gemini-3.8-flash,ollama/gpt-oss:120b,ollama/minimax-m2.5:cloud,ollama/glm-5.3-flash:cloud"
+            NODE_OPTIONS: "--max-old-space-size=2816"
+          resources:
+            requests:
+              memory: 1Gi
+            limits:
+              memory: 3500Mi
+          probes:
+            startup:
+              spec:
+                failureThreshold: 180
   persistence:
     config:
       name: openclaw-config
@@ -100,17 +110,23 @@ app-template:
               "defaults": {
                 "workspace": "/home/node/.openclaw/workspace",
                 "model": {
-                  "primary": "xai/grok-4-1-fast"
+                  "primary": "xai/grok-4.7"
                 },
                 "models": {
-                  "anthropic/claude-sonnet-4-5": {
+                  "anthropic/claude-sonnet-5-5": {
                     "alias": "sonnet"
                   },
-                  "anthropic/claude-haiku-4-5": {
+                  "anthropic/claude-haiku-5-5": {
                     "alias": "haiku"
                   },
-                  "openai/gpt-5-mini": {
-                    "alias": "gpt5mini"
+                  "openai/gpt-6.1-terra": {
+                    "alias": "terra"
+                  },
+                  "openai/gpt-6-luna": {
+                    "alias": "luna"
+                  },
+                  "google/gemini-3.8-flash": {
+                    "alias": "gemini"
                   },
                   "ollama/gpt-oss:120b": {
                     "alias": "gptoss"
@@ -121,10 +137,7 @@ app-template:
                   "ollama/glm-5.3-flash:cloud": {
                     "alias": "glm5"
                   },
-                  "xai/grok-4-1-fast-reasoning": {
-                    "alias": "grok-reasoning"
-                  },
-                  "xai/grok-4-1-fast": {
+                  "xai/grok-4.7": {
                     "alias": "grok"
                   }
                 },
@@ -155,12 +168,15 @@ app-template:
               "signal": {
                 "enabled": true,
                 "account": "+15012381898",
-                "httpUrl": "http://signal-cli:8080",
                 "dmPolicy": "pairing",
                 "allowFrom": [
                   "+15018045438",
                   "+14795310566"
-                ]
+                ],
+                "transport": {
+                  "kind": "external-native",
+                  "url": "http://signal-cli:8080"
+                }
               }
             },
 

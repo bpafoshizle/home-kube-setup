@@ -60,6 +60,17 @@ app-template:
                   };
                   const merged = deepMerge(existing, helm);
                   delete merged.agents?.list;
+                  delete merged.channels?.signal?.httpUrl;
+                  delete merged.agents?.defaults?.modelPolicy;
+                  if (helm.agents?.defaults?.models) {
+                    merged.agents.defaults.models = helm.agents.defaults.models;
+                  }
+                  if (helm.agents?.defaults?.model) {
+                    merged.agents.defaults.model = helm.agents.defaults.model;
+                  }
+                  if (merged.plugins?.entries) {
+                    merged.plugins.entries.google = { enabled: true };
+                  }
                   delete merged.gateway?.controlUi?.allowInsecureAuth;
                   delete merged.logging?.redactSensitive;
                   delete merged.commands?.ownerDisplay;
@@ -242,7 +253,7 @@ app-template:
             - secretRef:
                 name: openclaw-env-secret
           env:
-            OPENCLAW_MODELS_ALLOW: "anthropic/claude-sonnet-4-5,anthropic/claude-haiku-4-5,openai/gpt-5-mini,xai/grok-4-1-fast-reasoning,xai/grok-4-1-fast"
+            OPENCLAW_MODELS_ALLOW: "anthropic/claude-sonnet-5-5,anthropic/claude-haiku-5-5,anthropic/claude-sonnet-4-5,anthropic/claude-haiku-4-5,openai/gpt-6.1-terra,openai/gpt-6-luna,openai/gpt-5.4-mini,openai/gpt-5-mini,xai/grok-4.7,xai/grok-4-1-fast,google/gemini-3.8-flash,ollama/gpt-oss:120b,ollama/minimax-m2.5:cloud,ollama/glm-5.3-flash:cloud"
             PATH: "/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
             XDG_CONFIG_HOME: "/home/node/.config"
             GOG_HOME: "/home/node/.config/gogcli"
