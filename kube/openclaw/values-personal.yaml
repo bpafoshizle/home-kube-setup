@@ -180,6 +180,17 @@ app-template:
               }
             },
 
+            "plugins": {
+              "entries": {
+                "signal": {
+                  "enabled": true
+                },
+                "google": {
+                  "enabled": true
+                }
+              }
+            },
+
             "logging": {
               "level": "info",
               "consoleLevel": "info",
