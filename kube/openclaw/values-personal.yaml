@@ -27,7 +27,6 @@ app-template:
               "mode": "local",
               "trustedProxies": ["10.0.0.1"],
               "controlUi": {
-                "allowInsecureAuth": true,
                 "dangerouslyDisableDeviceAuth": true,
                 "allowedOrigins": ["http://192.168.0.204:18789", "http://openclaw-personal:18789"]
               }
@@ -38,8 +37,7 @@ app-template:
               "defaultProfile": "default",
               "profiles": {
                 "default": {
-                  "cdpUrl": "http://localhost:9222",
-                  "color": "#4285F4"
+                  "cdpUrl": "http://localhost:9222"
                 }
               }
             },
@@ -134,16 +132,14 @@ app-template:
                 "timeoutSeconds": 600,
                 "maxConcurrent": 1
               },
-              "list": [
-                {
-                  "id": "main",
-                  "default": true,
+              "entries": {
+                "main": {
                   "identity": {
                     "name": "Neumann",
                     "emoji": "\ud83e\udde0"
                   }
                 }
-              ]
+              }
             },
 
             "session": {
@@ -171,8 +167,7 @@ app-template:
             "logging": {
               "level": "info",
               "consoleLevel": "info",
-              "consoleStyle": "compact",
-              "redactSensitive": "tools"
+              "consoleStyle": "pretty"
             },
 
             "tools": {

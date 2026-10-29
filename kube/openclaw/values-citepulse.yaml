@@ -38,7 +38,6 @@ app-template:
               "mode": "local",
               "trustedProxies": ["10.0.0.1"],
               "controlUi": {
-                "allowInsecureAuth": true,
                 "dangerouslyDisableDeviceAuth": true,
                 "allowedOrigins": ["http://192.168.0.205:18789", "http://openclaw-citepulse:18789"]
               }
@@ -49,8 +48,7 @@ app-template:
               "defaultProfile": "default",
               "profiles": {
                 "default": {
-                  "cdpUrl": "http://localhost:9222",
-                  "color": "#4285F4"
+                  "cdpUrl": "http://localhost:9222"
                 }
               }
             },
@@ -131,7 +129,7 @@ app-template:
                   "ollama/minimax-m2.5:cloud": {
                     "alias": "minimax"
                   },
-                   "ollama/glm-5.3-flash:cloud": {
+                  "ollama/glm-5.3-flash:cloud": {
                     "alias": "glm5"
                   },
                   "xai/grok-4-1-fast-reasoning": {
@@ -145,16 +143,14 @@ app-template:
                 "timeoutSeconds": 600,
                 "maxConcurrent": 1
               },
-              "list": [
-                {
-                  "id": "main",
-                  "default": true,
+              "entries": {
+                "main": {
                   "identity": {
                     "name": "Anton",
                     "emoji": "\ud83d\udcda"
                   }
                 }
-              ]
+              }
             },
 
             "session": {
@@ -169,8 +165,7 @@ app-template:
             "logging": {
               "level": "info",
               "consoleLevel": "info",
-              "consoleStyle": "compact",
-              "redactSensitive": "tools"
+              "consoleStyle": "pretty"
             },
 
             "tools": {
