@@ -22,6 +22,10 @@ app-template:
               log() { echo "[$(date -Iseconds)] [init-config] $*"; }
               log "Starting config initialization"
               mkdir -p /home/node/.openclaw /home/node/.config /home/linuxbrew
+              rm -rf /home/node/.openclaw/workspace-attestations
+              rm -f /home/node/.openclaw/workspace.attested /home/node/.openclaw/workspace/.attested
+              rm -f /home/node/.openclaw/workspace/openclaw-workspace-state.json
+              rm -f /home/node/.openclaw/workspace*.attested*
               if [ -L /home/node/.config/gogcli ]; then
                 tmpdir="$(mktemp -d)"
                 cp -a /home/node/.config/gogcli/. "$tmpdir/" 2>/dev/null || true
@@ -55,6 +59,19 @@ app-template:
                     return target;
                   };
                   const merged = deepMerge(existing, helm);
+                  delete merged.agents?.list;
+                  delete merged.gateway?.controlUi?.allowInsecureAuth;
+                  delete merged.logging?.redactSensitive;
+                  delete merged.commands?.ownerDisplay;
+                  delete merged.meta?.lastTouchedAt;
+                  if (merged.browser?.profiles) {
+                    for (const p of Object.values(merged.browser.profiles)) {
+                      delete p.color;
+                    }
+                  }
+                  if (merged.logging?.consoleStyle === 'compact') {
+                    merged.logging.consoleStyle = 'pretty';
+                  }
                   fs.writeFileSync('/home/node/.openclaw/openclaw.json', JSON.stringify(merged, null, 2));
                 "
                 log "Config merged successfully"
@@ -62,7 +79,87 @@ app-template:
                 log "Mode: overwrite - copying Helm config"
                 cp /config/openclaw.json /home/node/.openclaw/openclaw.json
               fi
+              # Migrate legacy state and identities to SQLite if present
+              node -e "
+                const fs = require('fs');
+                const { DatabaseSync } = require('node:sqlite');
+                const dbPath = '/home/node/.openclaw/state/openclaw.sqlite';
+                if (fs.existsSync(dbPath)) {
+                  try {
+                    const db = new DatabaseSync(dbPath);
+                    const devPath = '/home/node/.openclaw/identity/device.json';
+                    if (fs.existsSync(devPath)) {
+                      try {
+                        const dev = JSON.parse(fs.readFileSync(devPath, 'utf8'));
+                        db.exec(\`
+                          CREATE TABLE IF NOT EXISTS device_identities (
+                            identity_key TEXT NOT NULL PRIMARY KEY,
+                            device_id TEXT NOT NULL,
+                            public_key_pem TEXT NOT NULL,
+                            private_key_pem TEXT NOT NULL,
+                            created_at_ms INTEGER NOT NULL,
+                            updated_at_ms INTEGER NOT NULL
+                          ) STRICT;
+                          CREATE INDEX IF NOT EXISTS idx_device_identities_device ON device_identities(device_id);
+                        \`);
+                        const insert = db.prepare('INSERT OR REPLACE INTO device_identities (identity_key, device_id, public_key_pem, private_key_pem, created_at_ms, updated_at_ms) VALUES (?, ?, ?, ?, ?, ?)');
+                        insert.run('primary', dev.deviceId, dev.publicKeyPem, dev.privateKeyPem, dev.createdAtMs || Date.now(), Date.now());
+                        fs.unlinkSync(devPath);
+                        console.log('[init-config] Migrated legacy device.json to SQLite');
+                      } catch (err) {
+                        console.error('[init-config] Warning: Failed to migrate device.json:', err.message);
+                      }
+                    }
+                    const pairedPath = '/home/node/.openclaw/devices/paired.json';
+                    if (fs.existsSync(pairedPath)) {
+                      try {
+                        const paired = JSON.parse(fs.readFileSync(pairedPath, 'utf8'));
+                        for (const [id, dev] of Object.entries(paired)) {
+                          const stmt = db.prepare(\`INSERT OR REPLACE INTO device_pairing_paired (
+                            device_id, public_key, display_name, platform, client_id, client_mode, role,
+                            roles_json, scopes_json, approved_scopes_json, tokens_json, created_at_ms, approved_at_ms
+                          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\`);
+                          stmt.run(
+                            dev.deviceId || id,
+                            dev.publicKey || '',
+                            dev.displayName || null,
+                            dev.platform || null,
+                            dev.clientId || null,
+                            dev.clientMode || null,
+                            dev.role || null,
+                            JSON.stringify(dev.roles || []),
+                            JSON.stringify(dev.scopes || []),
+                            JSON.stringify(dev.scopes || []),
+                            JSON.stringify(dev.tokens || {}),
+                            dev.createdAtMs || Date.now(),
+                            dev.approvedAtMs || Date.now()
+                          );
+                        }
+                        fs.unlinkSync(pairedPath);
+                        console.log('[init-config] Migrated legacy paired.json to SQLite');
+                      } catch (err) {
+                        console.error('[init-config] Warning: Failed to migrate paired.json:', err.message);
+                      }
+                    }
+                    db.close();
+                  } catch (err) {
+                    console.error('[init-config] Warning: SQLite migration error:', err.message);
+                  }
+                }
+              "
+              rm -f /home/node/.openclaw/identity/device.json*
+              rm -f /home/node/.openclaw/devices/paired.json* /home/node/.openclaw/devices/pending.json*
+              rm -f /home/node/.openclaw/exec-approvals.json*
+              rm -f /home/node/.openclaw/sessions /home/node/.openclaw/sessions.*.tmp
+              export HOME=/home/node
+              if [ -d "/home/node/.openclaw/npm" ]; then
+                log "Updating plugins in ~/.openclaw/npm..."
+                HOME=/home/node openclaw plugins update --all --accept-capabilities --acknowledge-install-policy-warning 2>/dev/null || true
+              fi
+              log "Running openclaw doctor --fix..."
+              HOME=/home/node openclaw doctor --fix --yes --non-interactive 2>/dev/null || true
               chown -R 1000:1000 /home/node/.openclaw /home/node/.config /home/linuxbrew
+              chown -R 0:0 /home/node/.openclaw/npm 2>/dev/null || true
               log "Config initialization complete"
 
         init-skills:
