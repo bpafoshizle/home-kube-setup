@@ -1,0 +1,116 @@
+---
+# Deliberate first-owner probe only. No formatting, mounts or Kubernetes changes.
+# Do not --limit this playbook: the first play checks every eligible worker.
+# Credentials travel through Ansible stdin under no_log, never iscsiadm argv.
+- name: Require all pilot workers to have no existing iSCSI owners
+  hosts: kubecompute
+  remote_user: ubuntu
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Require explicit first-owner authorization
+      ansible.builtin.assert:
+        that:
+          - pilot_first_owner | default('') == 'bletchley002'
+          - ansible_play_hosts_all | sort == groups['kubecompute'] | sort
+        fail_msg: First-owner probe requires all four workers and explicit authorization.
+
+    - name: Inspect sessions without discovery
+      ansible.builtin.command: iscsiadm -m session
+      register: sessions
+      changed_when: false
+      failed_when: sessions.rc != 21
+      check_mode: false
+
+    - name: Verify stable initiator identity
+      ansible.builtin.slurp:
+        src: /etc/iscsi/initiatorname.iscsi
+      register: identity
+
+    - name: Refuse an unexpected initiator
+      ansible.builtin.assert:
+        that:
+          - identity.content | b64decode | trim == 'InitiatorName=iqn.2026-10.local.home-kube:' + inventory_hostname
+
+- name: Discover and authenticate only the authorized first owner
+  hosts: bletchley002
+  remote_user: ubuntu
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    pilot_iqn: iqn.2000-01.com.synology:lynott.obsidian-pilot-cortex
+    pilot_portal: 192.168.0.43:3260
+  tasks:
+    - name: Discover the actual portal and target
+      ansible.builtin.command:
+        argv: [iscsiadm, -m, discovery, -t, sendtargets, -p, '{{ pilot_portal }}']
+      register: discovery
+      changed_when: false
+
+    - name: Require the approved target at the verified IPv4 portal
+      ansible.builtin.assert:
+        that:
+          - "'192.168.0.43:3260,1 ' + pilot_iqn in discovery.stdout_lines"
+      when: not ansible_check_mode
+
+    - name: Configure manual login and CHAP without secrets in argv or output
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - |
+            import json, os, pathlib, re, sys, tempfile
+            credentials = json.load(sys.stdin)
+            assert set(credentials) == {'username', 'password'}
+            assert all(isinstance(v, str) and v and not any(c in v for c in '\r\n\0')
+                       for v in credentials.values())
+            path = pathlib.Path('/etc/iscsi/nodes/iqn.2000-01.com.synology:lynott.obsidian-pilot-cortex/192.168.0.43,3260,1/default')
+            text = path.read_text()
+            settings = {
+                'node.startup': 'manual',
+                'node.session.auth.authmethod': 'CHAP',
+                'node.session.auth.username': credentials['username'],
+                'node.session.auth.password': credentials['password'],
+            }
+            for key, value in settings.items():
+                pattern = r'^' + re.escape(key) + r' = .*?$'
+                line = key + ' = ' + value
+                text = re.sub(pattern, lambda _: line, text, flags=re.M) if re.search(pattern, text, re.M) else text + line + '\n'
+            fd, temporary = tempfile.mkstemp(dir=path.parent)
+            try:
+                os.fchmod(fd, 0o600)
+                with os.fdopen(fd, 'w') as output:
+                    output.write(text)
+                    output.flush()
+                    os.fsync(output.fileno())
+                os.replace(temporary, path)
+            finally:
+                if os.path.exists(temporary):
+                    os.unlink(temporary)
+        stdin: "{{ lookup('ansible.builtin.file', playbook_dir + '/../sensitive/obsidian-pilot/chap.json') | from_json | to_json }}"
+      no_log: true
+      diff: false
+
+    - name: Login to the selected target on the sole authorized worker
+      ansible.builtin.command:
+        argv: [iscsiadm, -m, node, -T, '{{ pilot_iqn }}', -p, '{{ pilot_portal }}', --login]
+      when: not ansible_check_mode
+
+    - name: Wait for device enumeration
+      ansible.builtin.command: udevadm settle
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Read non-secret session and mapped device identity
+      ansible.builtin.command: iscsiadm -m session -P 3
+      register: session_identity
+      no_log: true
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Display mapping evidence, not node authentication configuration
+      ansible.builtin.debug:
+        msg: "{{ session_identity.stdout_lines | select('match', '^\\s*(Target:|Current Portal:|Persistent Portal:|Host Number:|scsi[0-9]|Attached scsi disk)') | list }}"
+      when: not ansible_check_mode

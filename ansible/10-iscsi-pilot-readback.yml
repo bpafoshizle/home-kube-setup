@@ -1,0 +1,38 @@
+---
+# Read-only diagnostic of kubelet-created node records; never display CHAP fields.
+- name: Verify pilot session startup policy without exposing credentials
+  hosts: bletchley002
+  remote_user: ubuntu
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read only startup policy and root-only file metadata
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - |
+            import json, pathlib, stat
+            root = pathlib.Path('/etc/iscsi/nodes/iqn.2000-01.com.synology:lynott.obsidian-pilot-cortex')
+            records = []
+            for path in root.rglob('*'):
+                if not path.is_file():
+                    continue
+                startup = [line.partition('=')[2].strip() for line in path.read_text().splitlines()
+                           if line.partition('=')[0].strip() == 'node.startup']
+                mode = stat.S_IMODE(path.stat().st_mode)
+                valid = startup == ['manual'] and mode == 0o600 and path.stat().st_uid == 0
+                records.append({'manualStartup': startup == ['manual'],
+                                'rootOwned': path.stat().st_uid == 0, 'mode': oct(mode)})
+                if not valid:
+                    raise SystemExit('Pilot node record has unexpected policy/permissions; credential fields withheld')
+            if not records:
+                raise SystemExit('No active pilot node record to verify; do not infer mounted startup policy')
+            print(json.dumps({'pilotNodeRecords': records, 'credentialValuesDisplayed': False}))
+      register: readback
+      changed_when: false
+      check_mode: false
+
+    - name: Show non-secret startup-policy readback
+      ansible.builtin.debug:
+        msg: '{{ readback.stdout }}'

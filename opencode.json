@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "obsidian_pilot": {
+        "type": "remote",
+        "url": "https://obsidian-pilot.tail55ae3f.ts.net/mcp",
+        "oauth": false,
+        "protocol": "legacy",
+        "headers": {
+          "Authorization": "Bearer {file:./sensitive/obsidian-pilot/mcp-token}"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: headless-vault
+description: Explicit-owner NAS-backed LiveSync and read-only Cortex service
+type: application
+version: 0.1.0
+appVersion: pilot

@@ -1,0 +1,118 @@
+---
+# One-shot storage qualification, not Cortex. Every created Pod stays gated
+# until an operator verifies no former owner and releases this exact Pod UID.
+# First run completed. Standard kubelet CHAP handling was subsequently accepted
+# in https://github.com/bpafoshizle/home-kube-setup/issues/84#issuecomment-6502567555.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cortex-storage-check
+  namespace: obsidian-pilot
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: obsidian-pilot
+        app.kubernetes.io/component: storage-check
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      schedulingGates:
+        - name: home-kube/manual-owner-release
+      nodeSelector:
+        kubernetes.io/arch: arm64
+        kubernetes.io/hostname: bletchley002
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: verify-new-storage-permissions
+          image: ghcr.io/aliasunder/vault-cortex@sha256:2ad32d433956fa96764ca6afffee9470ec4f1cd51dcb734615f52b121be8b0e5
+          command: [node, -e]
+          args:
+            - |
+              const fs = require('node:fs');
+              const marker = '/data/.pilot-storage.json';
+              if (!fs.lstatSync(marker).isFile() || fs.lstatSync(marker).isSymbolicLink()) throw new Error('Invalid marker');
+              const id = JSON.parse(fs.readFileSync(marker, 'utf8'));
+              if (id.vault !== 'obsidian-pilot' || id.lun_uuid !== '9a583351-01a2-45f5-abed-b38a476594dd' ||
+                  id.filesystem_uuid !== '256f8624-4e9c-45eb-95de-9103c3c955fe' || id.scsi_lun !== 1) throw new Error('Wrong storage');
+              const mounts = fs.readFileSync('/proc/self/mountinfo', 'utf8').trim().split('\n').filter(l => l.split(' ')[4] === '/data');
+              if (mounts.length !== 1 || mounts[0].split(' - ')[1].split(' ')[0] !== 'ext4') throw new Error('Missing ext4 mount');
+              if (fs.readdirSync('/data').some(n => !['lost+found', '.pilot-storage.json'].includes(n))) throw new Error('Unexpected existing state');
+              // Only the verified dedicated new state root, never a vault tree.
+              fs.chmodSync('/data', 0o700);
+              fs.chownSync('/data', 1000, 1000);
+              console.log('Verified new ext4 identity; dedicated state-root permissions prepared');
+          resources:
+            requests: {cpu: 200m, memory: 512Mi}
+            limits: {cpu: '1', memory: 1Gi}
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+              add: [CHOWN]
+          volumeMounts:
+            - name: state
+              mountPath: /data
+      containers:
+        - name: storage-check
+          image: ghcr.io/aliasunder/vault-cortex@sha256:2ad32d433956fa96764ca6afffee9470ec4f1cd51dcb734615f52b121be8b0e5
+          command: [node, -e]
+          args:
+            - |
+              const fs = require('node:fs');
+              const Database = require('better-sqlite3');
+              const root = '/data/.pilot-storage-check';
+              fs.mkdirSync(root, {mode: 0o700}); // Deliberately refuses existing state.
+              const path = root + '/check.db';
+              const first = new Database(path);
+              if (first.pragma('journal_mode = WAL', {simple: true}) !== 'wal') throw new Error('WAL unavailable');
+              first.pragma('synchronous = FULL'); // Diagnostic only, not Cortex's actual policy.
+              first.exec('CREATE TABLE fixture (value INTEGER); BEGIN IMMEDIATE; INSERT INTO fixture VALUES (42)');
+              const second = new Database(path, {timeout: 25});
+              let locked = false;
+              try { second.exec('BEGIN IMMEDIATE'); } catch (e) { if (e.code !== 'SQLITE_BUSY') throw e; locked = true; }
+              if (!locked) throw new Error('Concurrent writer was not rejected');
+              second.close();
+              first.exec('COMMIT');
+              first.pragma('wal_checkpoint(TRUNCATE)');
+              first.close();
+              const reopened = new Database(path, {readonly: true, fileMustExist: true});
+              if (reopened.prepare('SELECT value FROM fixture').get().value !== 42) throw new Error('Reopen mismatch');
+              reopened.close();
+              const fd = fs.openSync(root, 'r'); fs.fsyncSync(fd); fs.closeSync(fd);
+              for (const suffix of ['', '-wal', '-shm']) {
+                const file = path + suffix;
+                if (fs.existsSync(file)) fs.unlinkSync(file);
+              }
+              fs.rmdirSync(root);
+              const parent = fs.openSync('/data', 'r'); fs.fsyncSync(parent); fs.closeSync(parent);
+              const stats = fs.statfsSync('/data');
+              console.log(JSON.stringify({uid: process.getuid(), wal: true, writerLock: true,
+                reopen: true, directoryFsync: true, syntheticFilesRemoved: true,
+                availableBytes: stats.bavail * stats.bsize}));
+          resources:
+            requests: {cpu: 200m, memory: 512Mi}
+            limits: {cpu: '1', memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: state
+              mountPath: /data
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: cortex-state

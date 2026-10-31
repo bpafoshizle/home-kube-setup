@@ -1,0 +1,71 @@
+---
+# Release only the one-time initialization owner, before ANY Kubernetes mount.
+# Never use this playbook to transfer an application owner or recover a failed node.
+- name: Verify the initialized pilot LUN is idle and release its host session
+  hosts: bletchley002
+  remote_user: ubuntu
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    pilot_iqn: iqn.2000-01.com.synology:lynott.obsidian-pilot-cortex
+  tasks:
+    - name: Require explicit initialization-session release
+      ansible.builtin.assert:
+        that:
+          - pilot_release_initialization | default(false) | bool
+
+    - name: Require the exact initialized filesystem and no consumers
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - |
+            import json, pathlib, subprocess
+            path = pathlib.Path('/dev/disk/by-path/ip-192.168.0.43:3260-iscsi-iqn.2000-01.com.synology:lynott.obsidian-pilot-cortex-lun-1')
+            disk, = json.loads(subprocess.check_output([
+                'lsblk', '-J', '-b', '-o', 'TYPE,SIZE,SERIAL,FSTYPE,UUID,MOUNTPOINTS', str(path)
+            ]))['blockdevices']
+            assert disk['type'] == 'disk' and disk['size'] == 5368709120
+            assert disk['serial'] == '9a583351-01a2-45f5-abed-b38a476594dd'
+            assert disk['fstype'] == 'ext4' and disk['uuid'] == '256f8624-4e9c-45eb-95de-9103c3c955fe'
+            assert not disk.get('children') and not any(disk.get('mountpoints') or [])
+            assert not list((pathlib.Path('/sys/class/block') / path.resolve().name / 'holders').iterdir())
+            assert not pathlib.Path('/run/obsidian-pilot-cortex-init').exists()
+            print('Verified initialized filesystem identity, no mounts/holders and removed initialization mountpoint')
+      changed_when: false
+      check_mode: false
+
+    - name: Log out the idle initialization session
+      ansible.builtin.command:
+        argv: [iscsiadm, -m, node, -T, '{{ pilot_iqn }}', -p, '192.168.0.43:3260', --logout]
+
+    - name: Remove only this pilot target's temporary node records and CHAP copy
+      ansible.builtin.command:
+        argv: [iscsiadm, -m, node, -T, '{{ pilot_iqn }}', --op, delete]
+
+    - name: Verify the temporary target records are absent
+      ansible.builtin.stat:
+        path: '/etc/iscsi/nodes/{{ pilot_iqn }}'
+      register: records
+      when: not ansible_check_mode
+
+    - name: Require successful credential-record cleanup
+      ansible.builtin.assert:
+        that: not records.stat.exists
+      when: not ansible_check_mode
+
+- name: Require all eligible workers to have no sessions after initialization
+  hosts: kubecompute
+  remote_user: ubuntu
+  become: true
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Verify no remaining storage owner
+      tags: [verify-session-release]
+      ansible.builtin.command: iscsiadm -m session
+      register: sessions
+      changed_when: false
+      failed_when: sessions.rc != 21
+      when: not ansible_check_mode

@@ -1,0 +1,34 @@
+# Disabled until explicit bootstrap, mount inventory and owner release are complete.
+enabled: false
+vaultId: ''
+ownerNode: ''
+ownerReleaseConfigMap: ''
+publicOrigin: ''
+claims:
+  vault: ''
+  livesync: ''
+  cortex: ''
+subPaths:
+  vault: vault
+  livesync: state
+mountSources:
+  vault: ''
+  livesync: ''
+  cortex: ''
+cortex:
+  image: ghcr.io/aliasunder/vault-cortex@sha256:2ad32d433956fa96764ca6afffee9470ec4f1cd51dcb734615f52b121be8b0e5
+  authSecret: ''
+  lunUUID: ''
+  filesystemUUID: ''
+  readOnly: true
+  requiredState:
+    - path: index.db
+    - path: oauth.db
+    - path: .pilot-cortex-state.json
+livesync:
+  image: ghcr.io/vrtmrz/livesync-cli@sha256:18bd63c1f7fe7a84121166a4c6f173871f8266b3bcec4bf5a2e4ada64f4b6de5
+  # Supply actual durable DB/bookkeeping paths observed after bootstrap.
+  requiredState: []
+ingress:
+  enabled: false
+  hostname: ''
