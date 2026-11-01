@@ -10,6 +10,23 @@ function requireCondition(value, code) {
   if (!value) throw new Error(code);
 }
 
+export function diagnosticCode(error) {
+  // Explicit vocabulary only: an arbitrary uppercase error message can still be
+  // a credential/content fragment, so never infer safety from its character set.
+  const filesystem = {EIO: 'STORAGE_IO_ERROR', EACCES: 'STATE_ACCESS_DENIED',
+    ENOENT: 'STATE_PATH_MISSING', ENOSPC: 'STORAGE_FULL', EROFS: 'STORAGE_READ_ONLY'};
+  if (Object.hasOwn(filesystem, error?.code)) return filesystem[error.code];
+  if (error instanceof SyntaxError) return 'STATE_JSON_INVALID';
+  const known = new Set(['MOUNTINFO_INVALID', 'CAPACITY_UNKNOWN', 'CAPACITY_POLICY_INVALID',
+    'CAPACITY_CRITICAL', 'INODES_CRITICAL', 'OBSERVED_POLICY_INVALID', 'OBSERVED_STATE_INVALID',
+    'OBSERVED_FILE_INVALID', 'CONFIG_INVALID', 'OWNER_NOT_RELEASED', 'MOUNT_CONFIG_INVALID',
+    'EXPECTED_MOUNT_ABSENT', 'MARKER_CONFIG_INVALID', 'IDENTITY_MARKER_INVALID',
+    'STORAGE_IDENTITY_MISMATCH', 'STATE_CONFIG_INVALID', 'REQUIRED_STATE_ABSENT',
+    'PRIVATE_STATE_PERMISSIONS_INVALID', 'REQUIRED_STATE_IDENTITY_MISMATCH',
+    'STORAGE_CHECK_TIMEOUT', 'INVOCATION_INVALID']);
+  return known.has(error?.message) ? error.message : 'CHECK_FAILED';
+}
+
 function unescapeMount(value) {
   return value.replace(/\\([0-7]{3})/g, (_, octal) => String.fromCharCode(parseInt(octal, 8)));
 }
@@ -191,7 +208,8 @@ async function main() {
     try {
       const result = await check();
       if (result.warning) console.error('PILOT_GUARD_CAPACITY_WARNING');
-    } catch {
+    } catch (error) {
+      console.error('PILOT_GUARD_FAILURE reason=' + diagnosticCode(error));
       stop(true);
     } finally {
       busy = false;
@@ -200,8 +218,9 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
-  main().catch(() => {
+  main().catch(error => {
     console.error('PILOT_GUARD_START_REFUSED');
+    console.error('PILOT_GUARD_FAILURE reason=' + diagnosticCode(error));
     process.exit(1);
   });
 }

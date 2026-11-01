@@ -1,5 +1,7 @@
 # Actual observed disposable resources; no credential values.
 enabled: true
+# 2026-11-01: Cortex ext4 reads returned EIO; keep offline pending controlled recovery.
+maintenanceHold: true
 vaultId: obsidian-pilot
 # Temporary explicit owner authorization, not PV affinity or automatic failover.
 ownerNode: bletchley002

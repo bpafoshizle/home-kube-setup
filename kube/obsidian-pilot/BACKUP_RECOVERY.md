@@ -1,8 +1,13 @@
 # Backup/recovery implementation boundary
 
-Design checkpoint only: **no backup job, archive, key, destination PVC, restore or
-maintenance controller has been created or run**. The approved contract is
+Implementation in progress: the archive core and release policy have synthetic
+local tests. **No live backup job, real-data archive, recovery key, destination
+PVC, pilot restore or maintenance controller has been created or run.** The approved contract is
 [storage/recovery issue 70](https://github.com/bpafoshizle/home-kube-setup/issues/70#issuecomment-6254996127).
+
+The pilot is currently **offline after a real storage I/O failure**; see the
+[2026-11-01 incident](STORAGE_INCIDENT_2026-11-01.md). Missing clean-stop proof
+blocks ordinary maintenance releases. Backup automation is not recovery authority.
 
 ## Required capture
 
@@ -89,3 +94,60 @@ checks live sessions, patches gates, mounts storage, writes archives or restores
 data. The future adapter must collect trustworthy fresh evidence under an
 exclusive transaction and apply UID/resourceVersion-tested patches. Pure-policy
 success cannot establish real-world fencing or runtime backup acceptance.
+
+## Encrypted archive core (local qualification only)
+
+`backup-archive.mjs` exports `createBackup` and `verifyArchive`, with no CLI,
+Kubernetes access, automatic ownership release or default live paths. Callers must
+first establish stopped applications, verified roots/mounts and exclusive ownership.
+The future capture Pod must also independently verify mount/state guards. Unit
+tests use only disposable local synthetic directories and ephemeral test keys.
+
+- Captures all files/directories under exactly four separate roots: `vault`,
+  `livesync`, `cortex`, `configuration`. Hidden files, empty files, SQLite companion
+  files and file/directory modes are included. Symbolic/hard links and special
+  files refuse capture rather than being followed or silently skipped. Source
+  metadata is rechecked to detect changes; this never makes a live copy consistent.
+- Streams bounded file chunks through gzip and **AES-256-GCM** with a random
+  96-bit nonce and a caller-supplied 256-bit key. Neither key nor contents appear
+  in command arguments/logs. No unencrypted archive is staged to disk. A private
+  incomplete generation is authenticated and its full logical inventory verified
+  before fsync, atomic publication and directory fsync.
+- Verification authenticates the entire ciphertext before parsing/extraction.
+  Restoration only creates a new private directory, never merges or overwrites.
+  It rechecks paths, sizes, modes and SHA-256 hashes; files/directories are owned
+  by the restoring process (no arbitrary ownership restoration). The caller must
+  run as the intended UID 1000 for application restore. Partial failed extraction
+  remains isolated for investigation and is never an application root.
+- A private NFS-atomic directory lock prevents concurrent core captures. It is
+  never stolen automatically after a crash. This does not replace the controller
+  lease coordinating applications and manual maintenance.
+- Retention defaults to two, configurable upward. All published generations are
+  authenticated and verified before any pruning; corruption, key mismatch, read
+  failure or backwards clock blocks pruning. Failed/incomplete generations do not
+  count. Only exact known generation paths/files can be removed, never broad paths.
+
+### Recovery format v1
+
+This is a versioned application archive container, not tar/age/OpenSSL format.
+Keep this decoder and its Node source/runtime available independently of the
+cluster alongside key recovery instructions. No standalone CLI/key-delivery path
+has been implemented yet; this is not secure recovery acceptance.
+
+Binary framing: ASCII `PILOTBACKUP001\n`, 12 nonce bytes, AES-256-GCM ciphertext,
+16 tag bytes. The complete prefix is authenticated additional data. Plaintext is
+gzip-compressed UTF-8 JSON Lines: a version/vault/transaction `begin`, then sorted
+`directory` or `file` headers (relative root-prefixed path, mode, size); file bytes
+are bounded base64 `chunk` records followed by an `end` SHA-256. A final `complete`
+record gives counts and a SHA-256 over ordered header/end records. No filenames,
+content, settings or credentials are present in unencrypted receipts, which hold
+only vault/transaction/generation IDs, counts and aggregate hash. Receipts never
+substitute for authenticated inventory verification.
+
+The code has bounded record/file/count limits and synthetic tests; it has not had
+an independent security review or NAS/runtime qualification. Restoration here is
+offline extraction/integrity only, not permission to activate old sync/auth state.
+Startup/runtime guard failures now have a small explicit diagnostic vocabulary
+(including `STORAGE_IO_ERROR`); arbitrary exception messages, paths, JSON fragments
+and content are never logged. This guard change is local code only, not deployed
+into the held/offline service.

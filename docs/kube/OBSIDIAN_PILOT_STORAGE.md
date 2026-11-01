@@ -4,6 +4,12 @@ Provisioned on **2026-10-29** under the human-approved disposable pilot contract
 and the subsequent live approval for a 5 GB thick LUN on Volume 1. This is not
 production storage or live-vault cutover approval.
 
+**2026-11-01 update:** pilot is offline after mounted Cortex files returned EIO.
+No successful clean-stop proof or replacement release; all-worker no-session
+readback passed after scale-to-zero. No repair/remount/reinitialization was
+attempted. See [incident record](../../kube/obsidian-pilot/STORAGE_INCIDENT_2026-11-01.md)
+before using the historical initialization/deployment evidence below.
+
 ## Provisioned resources and readback
 
 | Item | Observed value |

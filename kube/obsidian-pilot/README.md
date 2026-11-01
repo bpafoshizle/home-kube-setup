@@ -12,7 +12,20 @@ including its internal iscsiadm argv behavior. That finding is no longer a
 blocker. Our own commands still must not contain secret values. Existing storage
 may be used through explicit single-owner release; never repeat initialization.
 
-## Current checkpoint (2026-10-29)
+## Current status (2026-11-01): offline storage incident
+
+Cortex state reads returned EIO while its ext4 mount/metadata remained visible;
+the guard correctly refused startup. The pilot was orderly scaled to zero. No
+clean-stop proof was established; no replacement owner was released. All eligible
+workers subsequently showed no sessions. `pilot-values.yaml` has
+`maintenanceHold: true`; do not remove the hold and release an owner as routine
+maintenance. See [incident evidence/recovery boundary](STORAGE_INCIDENT_2026-11-01.md).
+
+Encrypted backup code now has synthetic local capture/restore/tamper/retention
+tests. No real backup, recovery key, destination PVC, controller or pilot restore
+exists. This does not resolve the storage incident or establish recovery safety.
+
+## Historical deployed checkpoint (2026-10-29)
 
 - Deployed Helm revision **3**, namespace/release `obsidian-pilot`, Pod
   `obsidian-pilot-6d8cbb8fc4-kvz8l`, UID
@@ -138,6 +151,7 @@ force-delete, force-reschedule or physical-fencing test is authorized here.
 python3 -B kube/obsidian-pilot/test_storage.py
 node --test kube/obsidian-pilot/guard.test.mjs
 node --test kube/obsidian-pilot/maintenance-release.test.mjs
+node --test kube/obsidian-pilot/backup-archive.test.mjs
 kubectl --context=kubernetes-admin@kubernetes apply --dry-run=server -f kube/obsidian-pilot/storage.yaml
 kubectl --context=kubernetes-admin@kubernetes apply --dry-run=server -f kube/obsidian-pilot/native-cortex-check.yaml
 ```
@@ -182,7 +196,7 @@ See the implementation ticket for evidence; smoke success is not pilot acceptanc
 The human approved bounded same-healthy-worker backup maintenance releases on
 2026-10-31; no cross-node failover or forced release. See
 [backup/recovery implementation boundary](BACKUP_RECOVERY.md). A tested pure
-release-policy component exists, but no maintenance controller/permissions,
+release-policy and archive-core component exist, but no maintenance controller/permissions,
 archive, key, destination PVC or restore has been deployed. The existing release
 workflow remains operator-controlled until the adapter is implemented/qualified.
 

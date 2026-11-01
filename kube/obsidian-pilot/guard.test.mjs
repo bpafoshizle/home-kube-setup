@@ -5,9 +5,22 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { boundedCheck, checkCapacity, parseMounts, verify } from './chart/files/guard.mjs';
+import { boundedCheck, checkCapacity, diagnosticCode, parseMounts, verify } from './chart/files/guard.mjs';
 
 const healthy = { blocks: 1000n, bavail: 500n, bsize: 1048576n, files: 1000n, ffree: 500n };
+test('filesystem failures have fixed diagnostics without paths or contents', () => {
+  assert.equal(diagnosticCode(Object.assign(new Error('private-path-or-token'), {code: 'EIO'})), 'STORAGE_IO_ERROR');
+  assert.equal(diagnosticCode(Object.assign(new Error('private-path'), {code: 'ENOENT'})), 'STATE_PATH_MISSING');
+});
+test('JSON errors and known guard codes never print raw exceptions', () => {
+  assert.equal(diagnosticCode(new SyntaxError('private JSON fragment')), 'STATE_JSON_INVALID');
+  assert.equal(diagnosticCode(new Error('OWNER_NOT_RELEASED')), 'OWNER_NOT_RELEASED');
+});
+test('unknown uppercase and arbitrary errors are not treated as safe logs', () => {
+  assert.equal(diagnosticCode(new Error('PRIVATE_TOKEN_TEXT')), 'CHECK_FAILED');
+  assert.equal(diagnosticCode({code: 'private credential', message: 'private note'}), 'CHECK_FAILED');
+  assert.equal(diagnosticCode(null), 'CHECK_FAILED');
+});
 function fixture(overrides = {}) {
   const files = {
     '/release/release.json': JSON.stringify({ vault: 'pilot', node: 'worker', podUID: 'pod-one' }),

@@ -5,7 +5,17 @@ Execution: [Implement and deploy the approved disposable vault pilot][execution]
 Authority: [approved pilot contract][contract] and [storage/recovery contract][storage].
 Those contracts control over older research proposals.
 
-## Current outcome (2026-10-29): deployed, not accepted
+## Current outcome (2026-11-01): offline, storage recovery hold
+
+Fresh inventory found Cortex startup refusal with EIO on its mounted state. The
+pilot was scaled to zero; no clean-stop proof or replacement release was granted.
+All eligible workers subsequently had no sessions. No filesystem repair, remount,
+state recreation or failover was attempted. See
+[incident evidence](../../kube/obsidian-pilot/STORAGE_INCIDENT_2026-11-01.md).
+The deployed checkpoint below is historical, not current availability. Local
+encrypted archive tests are not proof of a real backup or pilot recovery.
+
+## Historical outcome (2026-10-29): deployed, not accepted
 
 The initial inventory below is historical. Isolated database/user, fresh pilot
 credentials, separate Retain NFS vault/LiveSync PVCs and static Retain ext4 iSCSI

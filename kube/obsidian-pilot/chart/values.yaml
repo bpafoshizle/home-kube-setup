@@ -1,5 +1,7 @@
 # Disabled until explicit bootstrap, mount inventory and owner release are complete.
 enabled: false
+# Explicit incident/maintenance hold; does not grant any replacement owner release.
+maintenanceHold: false
 vaultId: ''
 ownerNode: ''
 ownerReleaseConfigMap: ''
