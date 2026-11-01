@@ -1,0 +1,70 @@
+---
+# Creates only the new synthetic DB/user; refuses existing resources or ACL risks.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: obsidian-pilot-database-provision-v2
+  namespace: couchdb
+  labels:
+    app.kubernetes.io/part-of: obsidian-pilot
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 180
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: obsidian-pilot
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: provision
+          image: ghcr.io/vrtmrz/livesync-cli@sha256:18bd63c1f7fe7a84121166a4c6f173871f8266b3bcec4bf5a2e4ada64f4b6de5
+          command: [node, /checks/couchdb-bootstrap.mjs]
+          env:
+            - name: BOOTSTRAP_MODE
+              value: provision
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: '1', memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: admin
+              mountPath: /admin
+              readOnly: true
+            - name: pilot
+              mountPath: /pilot
+              readOnly: true
+            - name: checks
+              mountPath: /checks
+              readOnly: true
+      volumes:
+        - name: admin
+          secret:
+            secretName: couchdb-credentials
+            defaultMode: 0440
+            items:
+              - key: adminUsername
+                path: username
+              - key: adminPassword
+                path: password
+        - name: pilot
+          secret:
+            secretName: obsidian-pilot-database-bootstrap
+            defaultMode: 0440
+        - name: checks
+          configMap:
+            name: obsidian-pilot-couchdb-bootstrap

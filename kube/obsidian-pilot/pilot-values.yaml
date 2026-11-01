@@ -1,0 +1,49 @@
+# Actual observed disposable resources; no credential values.
+enabled: true
+# 2026-11-01: Cortex ext4 reads returned EIO; keep offline pending controlled recovery.
+maintenanceHold: true
+vaultId: obsidian-pilot
+# Temporary explicit owner authorization, not PV affinity or automatic failover.
+ownerNode: bletchley002
+ownerReleaseConfigMap: obsidian-pilot-owner
+publicOrigin: https://obsidian-pilot.tail55ae3f.ts.net
+claims:
+  vault: vault
+  livesync: livesync-state
+  cortex: cortex-state
+mountSources:
+  vault: lynott:/volume1/kubedata1/obsidian-pilot-vault-pvc-32394d18-6b21-4a56-a542-d5578b4b96bb/vault
+  livesync: lynott:/volume1/kubedata1/obsidian-pilot-livesync-state-pvc-6cfaf67b-9fa1-487e-a6e2-dd9200a32f98/state
+  cortex: /dev/sda
+cortex:
+  authSecret: cortex-auth
+  lunUUID: 9a583351-01a2-45f5-abed-b38a476594dd
+  filesystemUUID: 256f8624-4e9c-45eb-95de-9103c3c955fe
+  readOnly: false
+livesync:
+  requiredState:
+    - path: .livesync/settings.json
+      format: json
+      private: true
+      identity:
+        couchDB_DBNAME: obsidian-pilot
+        isConfigured: true
+        encrypt: true
+        liveSync: true
+        resolveConflictsByNewerFile: false
+        useIndexedDBAdapter: false
+    - path: .livesync/runtime/keyvalue-db.json
+      format: json
+    - path: .livesync/runtime/local-storage.json
+      format: json
+    - path: headless-vault-livesync-v2/CURRENT
+    - path: .guard-observed-files.json
+      format: json
+    - path: .pilot-sync-initialized.json
+      format: json
+      identity:
+        vault: obsidian-pilot
+        initialized: true
+ingress:
+  enabled: true
+  hostname: obsidian-pilot
