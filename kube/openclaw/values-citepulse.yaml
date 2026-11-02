@@ -8,16 +8,22 @@ app-template:
         main:
           env:
             OPENCLAW_MODELS_ALLOW: "anthropic/claude-sonnet-4-5,anthropic/claude-haiku-4-5,openai/gpt-5-mini,xai/grok-4-1-fast-reasoning,xai/grok-4-1-fast,ollama/gpt-oss:120b,ollama/minimax-m2.5:cloud,ollama/glm-5.3-flash:cloud"
-            NODE_OPTIONS: "--max-old-space-size=2816"
+            NODE_OPTIONS: "--max-old-space-size=2048"
           resources:
             requests:
-              memory: 1Gi
+              memory: 2000Mi
             limits:
-              memory: 4Gi
+              memory: 2800Mi
           probes:
             startup:
               spec:
                 failureThreshold: 180
+        chromium:
+          resources:
+            requests:
+              memory: 128Mi
+            limits:
+              memory: 600Mi
   persistence:
     config:
       name: openclaw-citepulse-config
@@ -147,7 +153,7 @@ app-template:
                 "main": {
                   "identity": {
                     "name": "Anton",
-                    "emoji": "\ud83d\udcda"
+                    "emoji": "📚"
                   }
                 }
               }
