@@ -142,7 +142,7 @@ app-template:
                   }
                 },
                 "userTimezone": "America/Chicago",
-                "timeoutSeconds": 600,
+                "timeoutSeconds": 1800,
                 "maxConcurrent": 1
               },
               "entries": {

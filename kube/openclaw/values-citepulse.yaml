@@ -11,7 +11,7 @@ app-template:
             NODE_OPTIONS: "--max-old-space-size=2048"
           resources:
             requests:
-              memory: 2000Mi
+              memory: 1Gi
             limits:
               memory: 2800Mi
           probes:
@@ -146,7 +146,7 @@ app-template:
                   }
                 },
                 "userTimezone": "America/Chicago",
-                "timeoutSeconds": 600,
+                "timeoutSeconds": 1800,
                 "maxConcurrent": 1
               },
               "entries": {
